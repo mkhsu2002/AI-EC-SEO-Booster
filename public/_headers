@@ -6,6 +6,12 @@
 /assets/*
   Content-Type: application/javascript; charset=utf-8
 
+/index.tsx
+  Content-Type: application/javascript; charset=utf-8
+
+/index.js
+  Content-Type: application/javascript; charset=utf-8
+
 /*.js
   Content-Type: application/javascript; charset=utf-8
 
