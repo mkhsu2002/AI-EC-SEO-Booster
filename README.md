@@ -460,7 +460,56 @@ A: 是的，本應用程式需要網路連線以呼叫 Google Gemini API。
 
 ---
 
-**Open sourced by [FlyPig AI](https://flypigai.icareu.tw/)**
+## 💬 技術支援與討論
+
+如有任何問題、建議或需要技術支援，歡迎加入 FlyPig 專屬 LINE 群組：
+
+👉 **加入 FlyPig LINE 群組** [https://line.me/R/ti/g/@icareuec](https://line.me/R/ti/g/@icareuec)
+
+我們會在這裡提供：
+
+- 技術支援與問題解答
+- 功能更新與使用教學
+- 社群討論與經驗分享
+- 最新功能預覽與測試
+
+---
+
+## 🔗 推薦同步參考
+
+如果您對 AI 電商行銷工具感興趣，歡迎同步參考以下相關專案：
+
+- **[AI-PM-Designer-Pro](https://github.com/mkhsu2002/AI-PM-Designer-Pro)** - AI 電商商品圖文生成工具，從產品圖自動生成完整行銷素材包
+- **[AI_Digital_Portrait_Studio](https://github.com/mkhsu2002/AI_Digital_Portrait_Studio)** - 專為電商設計 AI 人像圖片生成工具
+
+---
+
+## ☕ 請我喝杯咖啡
+
+如果這個專案對您有幫助，歡迎請我喝杯咖啡：
+
+👉 **Buy me a coffee** [https://buymeacoffee.com/mkhsu2002w](https://buymeacoffee.com/mkhsu2002w)
+
+您的支持是我持續開發的動力！
+
+---
+
+## 👉 商業部署及客製需求
+
+若需協助委外部署或客製化選項開發（例如新增場景、人物姿態），歡迎聯絡 FlyPig AI：
+
+- **Email**: flypig@icareu.tw
+- **LINE ID**: icareuec
+
+---
+
+## 📄 License
+
+**MIT License**
+
+Open sourced by [FlyPig AI](https://flypigai.icareu.tw/)
+
+Copyright (c) 2025 AI EC SEO Booster
 
 ---
 
