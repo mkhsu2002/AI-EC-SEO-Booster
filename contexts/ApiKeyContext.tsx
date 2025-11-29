@@ -1,57 +1,45 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 interface ApiKeyContextType {
   apiKey: string | null;
-  setApiKey: (key: string) => void;
-  clearApiKey: () => void;
+  setApiKey: (key: string | null) => void;
   isApiKeySet: boolean;
 }
 
 const ApiKeyContext = createContext<ApiKeyContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'gemini_api_key';
-
 export const ApiKeyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [apiKey, setApiKeyState] = useState<string | null>(null);
+  const [apiKey, setApiKeyState] = useState<string | null>(() => {
+    // 從 localStorage 讀取已儲存的 API Key
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('gemini_api_key');
+    }
+    return null;
+  });
 
-  // 從 localStorage 載入 API Key
-  useEffect(() => {
-    const storedKey = localStorage.getItem(STORAGE_KEY);
-    if (storedKey) {
-      setApiKeyState(storedKey);
+  const setApiKey = useCallback((key: string | null) => {
+    setApiKeyState(key);
+    if (key) {
+      localStorage.setItem('gemini_api_key', key);
+    } else {
+      localStorage.removeItem('gemini_api_key');
     }
   }, []);
 
-  const setApiKey = (key: string) => {
-    localStorage.setItem(STORAGE_KEY, key);
-    setApiKeyState(key);
-  };
-
-  const clearApiKey = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setApiKeyState(null);
-  };
+  const isApiKeySet = !!apiKey;
 
   return (
-    <ApiKeyContext.Provider
-      value={{
-        apiKey,
-        setApiKey,
-        clearApiKey,
-        isApiKeySet: !!apiKey,
-      }}
-    >
+    <ApiKeyContext.Provider value={{ apiKey, setApiKey, isApiKeySet }}>
       {children}
     </ApiKeyContext.Provider>
   );
 };
 
-export const useApiKey = () => {
+export const useApiKey = (): ApiKeyContextType => {
   const context = useContext(ApiKeyContext);
   if (context === undefined) {
     throw new Error('useApiKey must be used within an ApiKeyProvider');
   }
   return context;
 };
-
 

@@ -7,26 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
 node_modules
 dist
 dist-ssr
 *.local
-
-# Firebase
-.firebase/
-firebase-debug.log
-firestore-debug.log
-
-# Build outputs
-functions/lib/
-functions/node_modules/
-*.js.map
-
-# Environment variables
-.env
-.env.local
-.env.*.local
 
 # Editor directories and files
 .vscode/*
@@ -38,16 +22,3 @@ functions/node_modules/
 *.njsproj
 *.sln
 *.sw?
-
-# Temporary files
-index.js
-vite.config.simple.ts
-
-# Documentation and discussion files (keep locally, exclude from git)
-PROJECT_SUMMARY.md
-INTEGRATION_PROMPT.md
-OPTIMIZATION_REPORT.md
-GIT_REPO_MIGRATION_GUIDE.md
-GITHUB_TOPICS.md
-DEPLOYMENT_FIX.md
-CLOUDFLARE_PAGES.md

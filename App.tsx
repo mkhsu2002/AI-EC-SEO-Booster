@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { analyzeMarket, generateContentStrategy } from './services/geminiService';
+import { useApiKey } from './contexts/ApiKeyContext';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import type { AnalysisResult, BuyerPersona, Competitor, ProductInfo, ContentStrategy, ContentTopic, InteractiveElement } from './types';
 
 // --- Helper Functions ---
@@ -20,7 +22,6 @@ const SparklesIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg
 const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.667 0l3.181-3.183m-3.181-4.991-3.181-3.183a8.25 8.25 0 0 0-11.667 0L2.985 14.651" /></svg>);
 const ArrowDownTrayIcon: React.FC<{ className?: string }> = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>);
 const EyeIcon: React.FC<{ className?: string }> = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>);
-const CodeBracketIcon: React.FC<{ className?: string }> = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 15" /></svg>);
 
 
 // --- UI Components ---
@@ -310,11 +311,10 @@ interface ContentStrategyDisplayProps {
   strategy: ContentStrategy;
   productInfo: ProductInfo | null;
   analysisResult: AnalysisResult | null;
-  onGenerateGammaPrompt: (topic: ContentTopic) => void;
   onGenerateAIStudioPrompt: (topic: ContentTopic) => void;
 }
 
-const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strategy, productInfo, analysisResult, onGenerateGammaPrompt, onGenerateAIStudioPrompt }) => {
+const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strategy, productInfo, analysisResult, onGenerateAIStudioPrompt }) => {
     
     const handleDownload = () => {
         if (!productInfo) return;
@@ -380,7 +380,7 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
             <div className="space-y-8">
                  <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                     <h4 className="text-xl font-bold text-brand-light mb-3">第三步：生成前導頁提示詞</h4>
-                    <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 Gamma.app 或 AI Studio 的提示詞。</p>
+                    <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 AI Studio 的提示詞。</p>
                 </div>
 
                 <div>
@@ -389,7 +389,6 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
                             <ContentTopicCard 
                                 key={i} 
                                 topic={topic}
-                                onGenerateGammaPrompt={() => onGenerateGammaPrompt(topic)}
                                 onGenerateAIStudioPrompt={() => onGenerateAIStudioPrompt(topic)}
                             />
                         )}
@@ -420,11 +419,10 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
 
 interface ContentTopicCardProps {
     topic: ContentTopic;
-    onGenerateGammaPrompt: () => void;
     onGenerateAIStudioPrompt: () => void;
 }
 
-const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateGammaPrompt, onGenerateAIStudioPrompt }) => {
+const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateAIStudioPrompt }) => {
     return (
     <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-3 flex flex-col justify-between">
         <div>
@@ -442,17 +440,10 @@ const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateGa
                  </div>
             </div>
         </div>
-        <div className="mt-4 space-y-2">
+        <div className="mt-4">
             <button 
-                onClick={onGenerateGammaPrompt} 
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm"
-            >
-                <CodeBracketIcon className="w-4 h-4 mr-2" />
-                生成 Gamma.app 提示詞
-            </button>
-             <button 
                 onClick={onGenerateAIStudioPrompt} 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm shadow-md hover:shadow-lg"
             >
                 <SparklesIcon className="w-4 h-4 mr-2" />
                 生成 AI Studio 提示詞
@@ -587,7 +578,6 @@ const FeatureIntroductionContent: React.FC = () => (
             <div>
                 <h3 className="text-lg font-semibold text-brand-light mb-2">💻 一鍵生成前導頁提示詞</h3>
                  <ul className="list-disc list-inside space-y-1 pl-2">
-                     <li>**Gamma.app 網頁生成提示詞：** 為 Gamma.app 生成專業的網頁生成提示詞，快速創建高品質的前導頁。</li>
                      <li>**AI Studio 前導頁程式碼生成：** 一鍵生成專業提示詞，讓 AI 程式碼助理（如 Google AI Studio）在幾秒內產出高品質的 React 前導頁程式碼。</li>
                  </ul>
             </div>
@@ -596,7 +586,7 @@ const FeatureIntroductionContent: React.FC = () => (
          <ol className="list-decimal list-inside space-y-2 pl-2">
              <li>**第一步：輸入產品資訊** - 填寫產品資料並點擊「生成市場分析報告」。</li>
              <li>**第二步：生成內容策略** - 報告產出後，點擊「生成內容策略」按鈕，AI 將規劃出詳細的內容與 SEO 策略。</li>
-             <li>**第三步：生成前導頁提示詞** - 從建議的內容主題中，點擊「生成 Gamma.app 提示詞」或「生成 AI Studio 提示詞」按鈕，複製提示詞後貼到對應的 AI 工具中即可快速產出高品質的前導頁。</li>
+             <li>**第三步：生成前導頁提示詞** - 從建議的內容主題中，點擊「生成 AI Studio 提示詞」按鈕，複製提示詞後貼到 AI 程式碼助理（如 Google AI Studio）中即可快速產出高品質的前導頁。</li>
          </ol>
     </>
 );
@@ -605,6 +595,7 @@ const FeatureIntroductionContent: React.FC = () => (
 // --- Main App Component ---
 
 function App() {
+    const { apiKey } = useApiKey();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -619,14 +610,19 @@ function App() {
     const [promptModalTitle, setPromptModalTitle] = useState('');
     
     const [isIntroModalOpen, setIsIntroModalOpen] = useState(false);
+    const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
     const handleAnalyze = useCallback(async (productInfo: ProductInfo) => {
+        if (!apiKey) {
+            setError('請先設定 Gemini API Key');
+            return;
+        }
         setProductInfo(productInfo);
         setIsLoading(true);
         setError(null);
         setAnalysisResult(null);
         try {
-            const result = await analyzeMarket(productInfo);
+            const result = await analyzeMarket(productInfo, apiKey);
             setAnalysisResult(result);
         } catch (err) {
             setError(err instanceof Error ? err.message : '發生未知錯誤');
@@ -634,15 +630,20 @@ function App() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [apiKey]);
     
     const handleGenerateStrategy = useCallback(async () => {
-        if (!analysisResult) return;
+        if (!analysisResult || !apiKey) {
+            if (!apiKey) {
+                setStrategyError('請先設定 Gemini API Key');
+            }
+            return;
+        }
         setIsGeneratingStrategy(true);
         setStrategyError(null);
         setContentStrategy(null);
         try {
-            const result = await generateContentStrategy(analysisResult);
+            const result = await generateContentStrategy(analysisResult, apiKey);
             setContentStrategy(result);
         } catch (err) {
             setStrategyError(err instanceof Error ? err.message : '發生未知錯誤');
@@ -650,93 +651,35 @@ function App() {
         } finally {
             setIsGeneratingStrategy(false);
         }
-    }, [analysisResult]);
-
-    const handleGenerateGammaPrompt = useCallback((topic: ContentTopic) => {
-        if (!productInfo || !analysisResult || !contentStrategy) return;
-
-        const personaDetails = analysisResult.buyerPersonas.map(p => 
-            `- **${p.personaName} (${p.demographics}):**\n   - **興趣:** ${p.interests.join(', ')}\n   - **痛點:** ${p.painPoints.join(', ')}\n   - **搜尋關鍵字:** ${p.keywords.join(', ')}`
-        ).join('\n\n');
-
-        const prompt = `**任務目標：** 根據以下詳細的市場分析，為產品「${productInfo.name}」創建一篇具吸引力、SEO 優化的專業前導頁文章。
-
----
-
-**1. 文章主標題 (請直接使用)：**
-"${topic.topic}"
-
----
-
-**2. 核心推廣產品資訊：**
-*   **產品名稱：** ${productInfo.name}
-*   **產品描述：** ${productInfo.description}
-*   **產品參考連結 (用於連結與內容參考)：** ${productInfo.url || '無'}
-
----
-
-**3. 目標受眾深度剖析 (請以此為基礎進行撰寫)：**
-您正在為以下這些人物撰寫，請直接解決他們的需求與痛點：
-${personaDetails}
-
----
-
-**4. 關鍵訊息與價值主張 (文章必須強調)：**
-*   **主要特色：** ${analysisResult.productCoreValue.mainFeatures.join('; ')}
-*   **核心優勢 (獨特賣點)：** ${analysisResult.productCoreValue.coreAdvantages.join('; ')}
-*   **解決的痛點：** ${analysisResult.productCoreValue.painPointsSolved.join('; ')}
-
----
-
-**5. 內容與 SEO 要求：**
-*   **主要關鍵字 (Focus Keyword)：** \`${topic.focusKeyword}\` (請確保在標題、副標題和內文中自然地出現)
-*   **長尾關鍵字 (Long-tail Keywords)：** 請在文章中自然地融入以下詞組：${topic.longTailKeywords.join(', ')}
-*   **語意關鍵字 (Semantic Keywords)：** 為了建立主題權威，請使用相關概念詞：${topic.seoGuidance.semanticKeywords.join(', ')}
-*   **建議文章結構：**
-    1.  **開頭：** 使用一個引人入勝的引言，提及目標受眾的一個共同痛點，引起共鳴。
-    2.  **發展：** 詳細闡述該問題，讓讀者感覺「你懂我」。
-    3.  **解決方案：** 順勢引出「${productInfo.name}」作為理想的解決方案。自然地介紹其特色與優勢如何解決前述痛點。
-    4.  **差異化：** (如果適用) 可以簡短提及與市場上其他方案（例如 ${analysisResult.competitorAnalysis.length > 0 ? analysisResult.competitorAnalysis[0].brandName : '傳統方法'}）的不同之處，突顯我們的獨特性。
-    5.  **結尾：** 用一個強而有力的總結收尾，並搭配明確的行動呼籲 (CTA)。
-*   **寫作語氣：** 針對 **${productInfo.market}** 市場，語氣應專業、具說服力，並對用戶的問題表示同理心。參考語言特性：${analysisResult.marketPositioning.languageNuances}。
-
----
-
-**6. 行動呼籲 (Call to Action - CTA)：**
-請在文章結尾處，自然地整合以下至少一個 CTA 文案：
-${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
-
----
-
-**7. 視覺要求：**
-請選擇與產品、目標市場和受眾形象相關的高品質、專業庫存圖片。例如，展示符合人物誌形象的人們從產品中受益的場景。
-`.trim();
-        setPromptModalTitle('Gamma.app 網頁生成提示詞');
-        setPromptModalContent(prompt);
-
-    }, [productInfo, analysisResult, contentStrategy]);
+    }, [analysisResult, apiKey]);
 
     const handleGenerateAIStudioPrompt = useCallback((topic: ContentTopic) => {
         if (!productInfo || !analysisResult || !contentStrategy) return;
 
-        const prompt = `
-You are an expert frontend developer specializing in creating high-conversion landing pages with React and Tailwind CSS.
-Your task is to generate the complete React application code to be placed inside the \`<script type="module">\` tag of the provided HTML boilerplate.
+        const personaDetails = analysisResult.buyerPersonas.map(p => 
+            `- ${p.personaName} (${p.demographics}): 興趣包括 ${p.interests.join('、')}，面臨的痛點是 ${p.painPoints.join('、')}`
+        ).join('\n');
 
-**Boilerplate (DO NOT repeat this structure in your output, only provide the JavaScript code for the script tag):**
+        const prompt = `你是一位專業的前端開發工程師，專精於使用 React 和 Tailwind CSS 建立高轉換率的前導頁。
+
+**任務目標：**
+為產品「${productInfo.name}」建立一個完整、可直接運行的 React 前導頁 HTML 檔案。
+
+**重要：請生成完整的 HTML 檔案，包含以下結構：**
+
 \`\`\`html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${productInfo.name} - Landing Page</title>
+    <title>${productInfo.name} - ${topic.topic}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="importmap">
     {
       "imports": {
-        "react": "https://esm.sh/react@18.2.0",
-        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client"
+        "react": "https://esm.sh/react@19.1.1",
+        "react-dom/client": "https://esm.sh/react-dom@19.1.1/client"
       }
     }
     </script>
@@ -744,52 +687,122 @@ Your task is to generate the complete React application code to be placed inside
 <body class="bg-slate-900 text-slate-50">
     <div id="root"></div>
     <script type="module">
-        // YOUR REACT CODE GOES HERE
+        // 請在這裡生成完整的 React 程式碼
     </script>
 </body>
 </html>
 \`\`\`
 
-**Instructions for the React Code:**
-1.  **Imports:** Start your code by importing React and ReactDOM. This is mandatory.
-    \`\`\`javascript
-    import React, { useState, useEffect, useCallback } from 'react';
-    import ReactDOM from 'react-dom/client';
-    \`\`\`
-2.  **Single Component Structure:** Create a main \`App\` component that contains the entire landing page structure.
-3.  **Render the App:** Use \`ReactDOM.createRoot(document.getElementById('root')).render(<App />);\` to render your main component.
-4.  **Design & UX:**
-    *   The design must be modern, clean, professional, and fully responsive using Tailwind CSS.
-    *   Use a color palette based on: Primary: #3b82f6 (blue-500), Surface: #1e293b (slate-800), Text: #f8fafc (slate-50). The body background is already set to a dark slate.
-    *   Incorporate subtle animations (e.g., fade-in on scroll) for a premium feel.
-    *   Use high-quality placeholder images from \`https://picsum.photos/seed/{seed}/width/height\` for visuals.
-5.  **Content & SEO:**
-    *   The main headline of the page must be: "${topic.topic}".
-    *   The content should be persuasive and directly address the target audience's needs.
-    *   Integrate the following SEO keywords naturally:
-        *   **Focus Keyword:** ${topic.focusKeyword}
-        *   **Long-tail Keywords:** ${topic.longTailKeywords.join(', ')}
-        *   **Semantic Keywords:** ${topic.seoGuidance.semanticKeywords.join(', ')}
-6.  **Page Structure:** The landing page should include the following sections in order:
-    *   **Header:** With the product name and a primary CTA button.
-    *   **Hero Section:** A compelling headline ("${topic.topic}"), a brief, engaging subheading, and a visually appealing image.
-    *   **Pain Points Section:** A section titled "是否這就是您遇到的困擾？" or similar, listing the key pain points solved by the product: "${analysisResult.productCoreValue.painPointsSolved.join('", "')}". Speak directly to the user's problems.
-    *   **Solution/Features Section:** Introduce "${productInfo.name}" as the solution. Detail its main features: "${analysisResult.productCoreValue.mainFeatures.join('", "')}". Highlight the core advantages: "${analysisResult.productCoreValue.coreAdvantages.join('", "')}".
-    *   **Testimonials Section:** Create a section with 2-3 brief, fictional testimonials. Each testimonial should represent one of the buyer personas:
-        ${analysisResult.buyerPersonas.map(p => `- ${p.personaName} (${p.demographics})`).join('\n        ')}
-    *   **Final Call-to-Action (CTA) Section:** A strong, clear CTA section. Use one of these suggested CTA texts: "${contentStrategy.ctaSuggestions.join('" or "')}".
+**React 程式碼要求（必須嚴格遵守）：**
 
-**START OF CONTEXT DATA:**
----
-*   **Product Name:** ${productInfo.name}
-*   **Product Description:** ${productInfo.description}
-*   **Target Market:** ${productInfo.market}
-*   **Headline/Topic:** ${topic.topic}
-*   **Description for Topic:** ${topic.description}
----
-**END OF CONTEXT DATA.**
+1. **導入語句（必須使用以下格式）：**
+\`\`\`javascript
+import React, { useState } from 'react';
+import { createRoot } from 'react-dom/client';
+\`\`\`
+   ⚠️ 注意：不要使用 \`ReactDOM.createRoot\`，必須使用 \`createRoot\` 從 \`react-dom/client\` 導入
 
-Now, generate ONLY the complete JavaScript code for the React application to be placed inside the \`<script type="module">\` tag.
+2. **元件結構：**
+   - 建立一個名為 \`App\` 的函數式元件
+   - 使用 \`export default\` 或直接定義函數
+   - 所有 JSX 內容都應該在 App 元件內返回
+
+3. **渲染方式（必須使用以下格式）：**
+\`\`\`javascript
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Root element not found');
+const root = createRoot(rootElement);
+root.render(<App />);
+\`\`\`
+   ⚠️ 注意：必須檢查 root 元素是否存在，避免運行時錯誤
+
+4. **設計規範：**
+   - 使用 Tailwind CSS 進行樣式設計
+   - 色彩配置：主色 #3b82f6 (blue-500)，背景 #1e293b (slate-800)，文字 #f8fafc (slate-50)
+   - 必須完全響應式設計（支援手機、平板、桌面）
+   - 加入適當的動畫效果（如 fade-in、hover 效果）
+   - 使用高品質圖片：\`https://picsum.photos/seed/{產品名稱}/800/600\`
+
+5. **頁面結構（必須包含以下區塊，按順序）：**
+   
+   **a) Header（頁首）：**
+   - 顯示產品名稱：「${productInfo.name}」
+   - 包含一個主要的 CTA 按鈕，文字使用：「${contentStrategy.ctaSuggestions[0] || '立即探索'}」
+   
+   **b) Hero Section（主視覺區）：**
+   - 主標題：「${topic.topic}」
+   - 副標題：簡短有力的描述，說明產品如何解決問題
+   - 一張吸引人的產品相關圖片
+   - 一個醒目的 CTA 按鈕
+   
+   **c) Pain Points Section（痛點區）：**
+   - 標題：「是否這就是您遇到的困擾？」
+   - 列出以下痛點（每個痛點一個項目）：
+${analysisResult.productCoreValue.painPointsSolved.map(p => `     - ${p}`).join('\n')}
+   - 使用圖示或視覺元素增強效果
+   
+   **d) Solution/Features Section（解決方案/特色區）：**
+   - 標題：「${productInfo.name} 為您提供完美解決方案」
+   - 產品描述：${productInfo.description}
+   - 主要特色（每個特色一個卡片或區塊）：
+${analysisResult.productCoreValue.mainFeatures.map(f => `     - ${f}`).join('\n')}
+   - 核心優勢（突出顯示）：
+${analysisResult.productCoreValue.coreAdvantages.map(a => `     - ${a}`).join('\n')}
+   
+   **e) Testimonials Section（見證區）：**
+   - 標題：「使用者真實見證」
+   - 建立 2-3 個見證卡片，每個代表一個買家人設：
+${analysisResult.buyerPersonas.slice(0, 3).map((p, i) => `     ${i + 1}. ${p.personaName} (${p.demographics})：撰寫一段符合此人物特色的見證文字`).join('\n')}
+   
+   **f) Final CTA Section（最終行動呼籲區）：**
+   - 強而有力的標題
+   - 使用以下其中一個 CTA 文案：
+${contentStrategy.ctaSuggestions.map(cta => `     - "${cta}"`).join('\n')}
+   - 大型、醒目的按鈕
+   - 如果產品有網址，按鈕應連結到：${productInfo.url || '#'}
+
+6. **SEO 優化要求：**
+   - 主標題必須包含主要關鍵字：「${topic.focusKeyword}」
+   - 在內容中自然地融入以下長尾關鍵字：${topic.longTailKeywords.join('、')}
+   - 使用語意相關關鍵字：${topic.seoGuidance.semanticKeywords.join('、')}
+   - 關鍵字密度約 ${topic.seoGuidance.keywordDensity}
+
+7. **目標受眾資訊（用於撰寫內容）：**
+${personaDetails}
+
+8. **市場定位資訊：**
+   - 目標市場：${productInfo.market}
+   - 文化洞察：${analysisResult.marketPositioning.culturalInsights}
+   - 消費習慣：${analysisResult.marketPositioning.consumerHabits}
+   - 語言特性：${analysisResult.marketPositioning.languageNuances}
+
+**程式碼品質要求：**
+- ✅ 程式碼必須可以直接運行，無語法錯誤
+- ✅ 使用現代 React 語法（函數式元件、Hooks）
+- ✅ 確保所有變數都有適當的命名
+- ✅ 加入適當的註解說明重要區塊
+- ✅ 確保圖片 URL 正確且可訪問（使用 https://picsum.photos）
+- ✅ 所有文字內容使用繁體中文
+- ✅ 確保所有 JSX 標籤正確閉合
+- ✅ 確保所有字串使用正確的引號（單引號或雙引號）
+- ✅ 避免使用未定義的變數或函數
+
+**常見錯誤避免：**
+- ❌ 不要使用 \`ReactDOM.render\`（已棄用）
+- ❌ 不要使用 \`ReactDOM.createRoot\`（應從 react-dom/client 導入 createRoot）
+- ❌ 不要在 JSX 中使用未導入的元件
+- ❌ 不要忘記檢查 root 元素是否存在
+- ❌ 不要在 JSX 中直接使用未定義的變數
+
+**輸出格式要求：**
+1. 必須輸出完整的 HTML 檔案
+2. 從 <!DOCTYPE html> 開始，到 </html> 結束
+3. 在 <script type="module"> 標籤內包含完整的 React 程式碼
+4. 程式碼必須可以直接複製貼上到瀏覽器或 AI Studio 中運行
+5. 不要只輸出部分程式碼，必須是完整的、可運行的檔案
+
+**開始生成程式碼：**
+請現在生成完整的 HTML 檔案，確保程式碼可以直接運行。
         `.trim();
 
         setPromptModalTitle('AI Studio 生成提示詞');
@@ -834,7 +847,6 @@ Now, generate ONLY the complete JavaScript code for the React application to be 
                         strategy={contentStrategy} 
                         productInfo={productInfo}
                         analysisResult={analysisResult}
-                        onGenerateGammaPrompt={handleGenerateGammaPrompt}
                         onGenerateAIStudioPrompt={handleGenerateAIStudioPrompt}
                     />
                 )}
@@ -845,12 +857,20 @@ Now, generate ONLY the complete JavaScript code for the React application to be 
     return (
         <div className="min-h-screen bg-background font-sans">
             <main className="container mx-auto px-4 pb-12 relative">
-                <button 
-                    onClick={() => setIsIntroModalOpen(true)}
-                    className="absolute top-6 right-4 sm:right-6 md:right-8 bg-slate-800 hover:bg-slate-700 text-text-secondary font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out text-sm z-10 border border-slate-600"
-                >
-                    功能簡介
-                </button>
+                <div className="absolute top-6 right-4 sm:right-6 md:right-8 flex gap-2 z-10">
+                    <button 
+                        onClick={() => setIsApiKeyModalOpen(true)}
+                        className="bg-slate-800 hover:bg-slate-700 text-text-secondary font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out text-sm border border-slate-600"
+                    >
+                        {apiKey ? '更新 API Key' : '設定 API Key'}
+                    </button>
+                    <button 
+                        onClick={() => setIsIntroModalOpen(true)}
+                        className="bg-slate-800 hover:bg-slate-700 text-text-secondary font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out text-sm border border-slate-600"
+                    >
+                        功能簡介
+                    </button>
+                </div>
                 <Header />
                 <div className="mt-8">
                     {!analysisResult && !isLoading && !error && (
@@ -876,6 +896,9 @@ Now, generate ONLY the complete JavaScript code for the React application to be 
                  <InfoModal title="🚀 FlyPig AI 電商增長神器：功能簡介" onClose={() => setIsIntroModalOpen(false)}>
                     <FeatureIntroductionContent />
                  </InfoModal>
+            )}
+            {isApiKeyModalOpen && (
+                <ApiKeyModal onClose={() => setIsApiKeyModalOpen(false)} />
             )}
         </div>
     );

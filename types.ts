@@ -74,12 +74,3 @@ export interface ContentStrategy {
   interactiveElements: InteractiveElement[];
   ctaSuggestions: string[];
 }
-
-// --- Gamma API Types ---
-export interface GammaGenerationResult {
-  id: string;
-  status: 'completed' | 'pending' | 'failed' | 'processing';
-  gammaUrl: string;
-  pdfUrl?: string;
-  pptxUrl?: string;
-}

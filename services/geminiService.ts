@@ -1,18 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { ProductInfo, AnalysisResult, ContentStrategy } from '../types';
 
-// API Key 將從 Context 傳入
-let apiKeyInstance: string | null = null;
+let aiInstance: GoogleGenAI | null = null;
 
-export const setGeminiApiKey = (key: string) => {
-  apiKeyInstance = key;
-};
-
-const getAI = () => {
-  if (!apiKeyInstance) {
-    throw new Error("Gemini API Key 尚未設定。請先設定您的 API Key。");
+const getAIInstance = (apiKey: string): GoogleGenAI => {
+  if (!aiInstance || aiInstance.apiKey !== apiKey) {
+    aiInstance = new GoogleGenAI({ apiKey });
   }
-  return new GoogleGenAI({ apiKey: apiKeyInstance });
+  return aiInstance;
 };
 
 const analysisSchema = {
@@ -123,7 +118,13 @@ const contentStrategySchema = {
 };
 
 
-export const analyzeMarket = async (productInfo: ProductInfo): Promise<AnalysisResult> => {
+export const analyzeMarket = async (productInfo: ProductInfo, apiKey: string): Promise<AnalysisResult> => {
+  if (!apiKey) {
+    throw new Error("API Key 未設定，請先設定 Gemini API Key");
+  }
+
+  const ai = getAIInstance(apiKey);
+
   let imageDescription = "No image provided.";
   if (productInfo.image) {
     try {
@@ -133,7 +134,6 @@ export const analyzeMarket = async (productInfo: ProductInfo): Promise<AnalysisR
           data: productInfo.image.base64,
         },
       };
-      const ai = getAI();
       const result = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: { parts: [imagePart, { text: "Describe the key visual features of the product in this image for a marketing analysis. Respond in Traditional Chinese." }] },
@@ -169,7 +169,6 @@ export const analyzeMarket = async (productInfo: ProductInfo): Promise<AnalysisR
   `;
 
   try {
-    const ai = getAI();
     const result = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
@@ -193,7 +192,13 @@ export const analyzeMarket = async (productInfo: ProductInfo): Promise<AnalysisR
   }
 };
 
-export const generateContentStrategy = async (analysisResult: AnalysisResult): Promise<ContentStrategy> => {
+export const generateContentStrategy = async (analysisResult: AnalysisResult, apiKey: string): Promise<ContentStrategy> => {
+    if (!apiKey) {
+        throw new Error("API Key 未設定，請先設定 Gemini API Key");
+    }
+
+    const ai = getAIInstance(apiKey);
+
     const prompt = `
         You are a senior content strategist and SEO expert. Based on the detailed market analysis provided below, create a content and engagement strategy for a webpage.
 
@@ -215,7 +220,6 @@ export const generateContentStrategy = async (analysisResult: AnalysisResult): P
     `;
 
     try {
-        const ai = getAI();
         const result = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
