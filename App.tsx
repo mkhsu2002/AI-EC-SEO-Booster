@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { analyzeMarket, generateContentStrategy } from './services/geminiService';
-import { startGammaGeneration, checkGammaGenerationStatus } from './services/gammaService';
-import type { AnalysisResult, BuyerPersona, Competitor, ProductInfo, ContentStrategy, ContentTopic, InteractiveElement, GammaGenerationResult } from './types';
+import type { AnalysisResult, BuyerPersona, Competitor, ProductInfo, ContentStrategy, ContentTopic, InteractiveElement } from './types';
 
 // --- Helper Functions ---
 const fileToBase64 = (file: File): Promise<string> =>
@@ -311,14 +310,11 @@ interface ContentStrategyDisplayProps {
   strategy: ContentStrategy;
   productInfo: ProductInfo | null;
   analysisResult: AnalysisResult | null;
-  onGenerateDocument: (topic: ContentTopic) => void;
   onGenerateGammaPrompt: (topic: ContentTopic) => void;
   onGenerateAIStudioPrompt: (topic: ContentTopic) => void;
-  generatingTopic: string | null;
-  generatedDocuments: Record<string, GammaGenerationResult>;
 }
 
-const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strategy, productInfo, analysisResult, onGenerateDocument, onGenerateGammaPrompt, onGenerateAIStudioPrompt, generatingTopic, generatedDocuments }) => {
+const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strategy, productInfo, analysisResult, onGenerateGammaPrompt, onGenerateAIStudioPrompt }) => {
     
     const handleDownload = () => {
         if (!productInfo) return;
@@ -383,8 +379,8 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
         >
             <div className="space-y-8">
                  <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-                    <h4 className="text-xl font-bold text-brand-light mb-3">第三步：生成前導頁與提示詞</h4>
-                    <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，使用 Gamma API 自動生成文件，或生成適用於其他平台的提示詞。</p>
+                    <h4 className="text-xl font-bold text-brand-light mb-3">第三步：生成前導頁提示詞</h4>
+                    <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 Gamma.app 或 AI Studio 的提示詞。</p>
                 </div>
 
                 <div>
@@ -393,11 +389,8 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
                             <ContentTopicCard 
                                 key={i} 
                                 topic={topic}
-                                onGenerate={() => onGenerateDocument(topic)}
                                 onGenerateGammaPrompt={() => onGenerateGammaPrompt(topic)}
                                 onGenerateAIStudioPrompt={() => onGenerateAIStudioPrompt(topic)}
-                                isGenerating={generatingTopic === topic.topic}
-                                generatedDocument={generatedDocuments[topic.topic]}
                             />
                         )}
                     </div>
@@ -427,16 +420,11 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
 
 interface ContentTopicCardProps {
     topic: ContentTopic;
-    onGenerate: () => void;
     onGenerateGammaPrompt: () => void;
     onGenerateAIStudioPrompt: () => void;
-    isGenerating: boolean;
-    generatedDocument: GammaGenerationResult | undefined;
 }
 
-const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerate, onGenerateGammaPrompt, onGenerateAIStudioPrompt, isGenerating, generatedDocument }) => {
-    const isGenerated = generatedDocument && generatedDocument.status === 'completed';
-
+const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateGammaPrompt, onGenerateAIStudioPrompt }) => {
     return (
     <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-3 flex flex-col justify-between">
         <div>
@@ -455,19 +443,6 @@ const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerate, 
             </div>
         </div>
         <div className="mt-4 space-y-2">
-            <button
-                disabled={isGenerating || isGenerated}
-                onClick={onGenerate}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center justify-center text-sm transition"
-            >
-                <DocumentTextIcon className="w-4 h-4 mr-2" />
-                {isGenerating ? '生成中...' : (isGenerated ? '已生成' : '呼叫 Gamma API 生成文件')}
-            </button>
-            {isGenerated && (
-                <a href={generatedDocument.gammaUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-green-400 hover:text-green-300 inline-flex items-center justify-center w-full py-1 bg-green-900/20 rounded-md hover:bg-green-900/40 transition">
-                    <EyeIcon className="w-4 h-4 mr-1" /> 查看已生成的文件
-                </a>
-            )}
             <button 
                 onClick={onGenerateGammaPrompt} 
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm"
@@ -610,11 +585,10 @@ const FeatureIntroductionContent: React.FC = () => (
                 </ul>
             </div>
             <div>
-                <h3 className="text-lg font-semibold text-brand-light mb-2">💻 一鍵生成行銷素材與程式碼</h3>
+                <h3 className="text-lg font-semibold text-brand-light mb-2">💻 一鍵生成前導頁提示詞</h3>
                  <ul className="list-disc list-inside space-y-1 pl-2">
-                     <li>**Gamma API 自動化文件生成：** 直接串接 Gamma API，全自動生成圖文並茂的專業文件。</li>
+                     <li>**Gamma.app 網頁生成提示詞：** 為 Gamma.app 生成專業的網頁生成提示詞，快速創建高品質的前導頁。</li>
                      <li>**AI Studio 前導頁程式碼生成：** 一鍵生成專業提示詞，讓 AI 程式碼助理（如 Google AI Studio）在幾秒內產出高品質的 React 前導頁程式碼。</li>
-                     <li>**專業簡報/文件提示詞生成：** 為 Gamma 等 AI 簡報工具生成專用提示詞，快速創建專業簡報。</li>
                  </ul>
             </div>
         </div>
@@ -622,7 +596,7 @@ const FeatureIntroductionContent: React.FC = () => (
          <ol className="list-decimal list-inside space-y-2 pl-2">
              <li>**第一步：輸入產品資訊** - 填寫產品資料並點擊「生成市場分析報告」。</li>
              <li>**第二步：生成內容策略** - 報告產出後，點擊「生成內容策略」按鈕，AI 將規劃出詳細的內容與 SEO 策略。</li>
-             <li>**第三步：生成前導頁與提示詞** - 從建議的內容主題中，點擊「呼叫 Gamma API 生成文件」即可全自動生成，或點擊「生成 AI Studio/Gamma 提示詞」來手動操作。</li>
+             <li>**第三步：生成前導頁提示詞** - 從建議的內容主題中，點擊「生成 Gamma.app 提示詞」或「生成 AI Studio 提示詞」按鈕，複製提示詞後貼到對應的 AI 工具中即可快速產出高品質的前導頁。</li>
          </ol>
     </>
 );
@@ -641,18 +615,10 @@ function App() {
     const [strategyError, setStrategyError] = useState<string | null>(null);
     const [contentStrategy, setContentStrategy] = useState<ContentStrategy | null>(null);
     
-    const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
-    const [gammaError, setGammaError] = useState<string | null>(null);
-    const [generatedDocuments, setGeneratedDocuments] = useState<Record<string, GammaGenerationResult>>({});
-    const [gammaStatusMessage, setGammaStatusMessage] = useState<string | null>(null);
-    
     const [promptModalContent, setPromptModalContent] = useState<string | null>(null);
     const [promptModalTitle, setPromptModalTitle] = useState('');
     
     const [isIntroModalOpen, setIsIntroModalOpen] = useState(false);
-
-
-    const pollingRefs = React.useRef<Record<string, boolean>>({});
 
     const handleAnalyze = useCallback(async (productInfo: ProductInfo) => {
         setProductInfo(productInfo);
@@ -831,63 +797,6 @@ Now, generate ONLY the complete JavaScript code for the React application to be 
     }, [productInfo, analysisResult, contentStrategy]);
 
 
-    const handleGenerateDocument = useCallback(async (topic: ContentTopic) => {
-        if (!productInfo || !analysisResult) return;
-        
-        const topicTitle = topic.topic;
-        setGeneratingTopic(topicTitle);
-        setGammaError(null);
-        setGammaStatusMessage('正在向 Gamma 提交請求...');
-
-        try {
-            const { id } = await startGammaGeneration(productInfo, analysisResult, topic);
-            pollingRefs.current[topicTitle] = true;
-            
-            const poll = async (retries = 24) => { // Poll for 2 minutes max (24 * 5s)
-                if (!pollingRefs.current[topicTitle]) return; // Stop if cancelled
-                if (retries <= 0) {
-                    setGammaError('Gamma 文件生成超時。');
-                    setGeneratingTopic(null);
-                    setGammaStatusMessage(null);
-                    delete pollingRefs.current[topicTitle];
-                    return;
-                }
-
-                try {
-                    const result = await checkGammaGenerationStatus(id);
-                    setGammaStatusMessage(`生成狀態：${result.status}...`);
-
-                    if (result.status === 'completed') {
-                        setGeneratedDocuments(prev => ({...prev, [topicTitle]: result}));
-                        setGeneratingTopic(null);
-                        setGammaStatusMessage(null);
-                        delete pollingRefs.current[topicTitle];
-                    } else if (result.status === 'failed') {
-                        setGammaError('Gamma 文件生成失敗。');
-                        setGeneratingTopic(null);
-                        setGammaStatusMessage(null);
-                        delete pollingRefs.current[topicTitle];
-                    } else {
-                        setTimeout(() => poll(retries - 1), 5000); // Poll every 5 seconds
-                    }
-                } catch(err) {
-                     setGammaError(err instanceof Error ? err.message : '輪詢 Gamma 狀態時發生錯誤。');
-                     setGeneratingTopic(null);
-                     setGammaStatusMessage(null);
-                     delete pollingRefs.current[topicTitle];
-                }
-            };
-
-            poll();
-
-        } catch (err) {
-            setGammaError(err instanceof Error ? err.message : '啟動 Gamma 文件生成時發生錯誤。');
-            setGeneratingTopic(null);
-            setGammaStatusMessage(null);
-        }
-    }, [productInfo, analysisResult]);
-
-
     const handleStartOver = () => {
         setIsLoading(false);
         setError(null);
@@ -896,12 +805,7 @@ Now, generate ONLY the complete JavaScript code for the React application to be 
         setIsGeneratingStrategy(false);
         setStrategyError(null);
         setContentStrategy(null);
-        setGeneratingTopic(null);
-        setGammaError(null);
-        setGeneratedDocuments({});
-        setGammaStatusMessage(null);
         setPromptModalContent(null);
-        pollingRefs.current = {};
         setFormKey(prevKey => prevKey + 1);
     };
     
@@ -930,16 +834,10 @@ Now, generate ONLY the complete JavaScript code for the React application to be 
                         strategy={contentStrategy} 
                         productInfo={productInfo}
                         analysisResult={analysisResult}
-                        onGenerateDocument={handleGenerateDocument} 
                         onGenerateGammaPrompt={handleGenerateGammaPrompt}
                         onGenerateAIStudioPrompt={handleGenerateAIStudioPrompt}
-                        generatingTopic={generatingTopic}
-                        generatedDocuments={generatedDocuments}
                     />
                 )}
-                
-                {generatingTopic && <Loader title="正在生成 Gamma 前導頁..." message={gammaStatusMessage || "請稍候..."} icon={<DocumentTextIcon className="w-16 h-16 mx-auto"/>} />}
-                {gammaError && <ErrorDisplay title="前導頁生成失敗" message={gammaError} />}
             </>
         )
     };
