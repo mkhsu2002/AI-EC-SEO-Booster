@@ -328,9 +328,10 @@ interface ContentStrategyDisplayProps {
   productInfo: ProductInfo | null;
   analysisResult: AnalysisResult | null;
   onGenerateAIStudioPrompt: (topic: ContentTopic) => void;
+  onGenerateGammaPrompt: (topic: ContentTopic) => void;
 }
 
-const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strategy, productInfo, analysisResult, onGenerateAIStudioPrompt }) => {
+const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strategy, productInfo, analysisResult, onGenerateAIStudioPrompt, onGenerateGammaPrompt }) => {
     
     const handleDownload = () => {
         if (!productInfo) return;
@@ -396,7 +397,7 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
             <div className="space-y-8">
                  <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                     <h4 className="text-xl font-bold text-brand-light mb-3">第三步：生成前導頁提示詞</h4>
-                    <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 AI Studio 的提示詞。</p>
+                    <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 AI Studio 或 Gamma 的提示詞。</p>
                 </div>
 
                 <div>
@@ -406,6 +407,7 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
                                 key={i} 
                                 topic={topic}
                                 onGenerateAIStudioPrompt={() => onGenerateAIStudioPrompt(topic)}
+                                onGenerateGammaPrompt={() => onGenerateGammaPrompt(topic)}
                             />
                         )}
                     </div>
@@ -436,9 +438,10 @@ const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strateg
 interface ContentTopicCardProps {
     topic: ContentTopic;
     onGenerateAIStudioPrompt: () => void;
+    onGenerateGammaPrompt: () => void;
 }
 
-const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateAIStudioPrompt }) => {
+const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateAIStudioPrompt, onGenerateGammaPrompt }) => {
     return (
     <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-3 flex flex-col justify-between">
         <div>
@@ -456,13 +459,20 @@ const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateAI
                  </div>
             </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
             <button 
                 onClick={onGenerateAIStudioPrompt} 
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm shadow-md hover:shadow-lg"
             >
                 <SparklesIcon className="w-4 h-4 mr-2" />
                 生成 AI Studio 提示詞
+            </button>
+            <button 
+                onClick={onGenerateGammaPrompt} 
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm shadow-md hover:shadow-lg"
+            >
+                <SparklesIcon className="w-4 h-4 mr-2" />
+                生成 Gamma 提示詞
             </button>
         </div>
     </div>
@@ -669,6 +679,91 @@ function App() {
         }
     }, [analysisResult, apiKey]);
 
+    const handleGenerateGammaPrompt = useCallback((topic: ContentTopic) => {
+        if (!productInfo || !analysisResult || !contentStrategy) return;
+
+        const personaDetails = analysisResult.buyerPersonas.map(p => 
+            `- **${p.personaName} (${p.demographics}):**\n   - **興趣:** ${p.interests.join('、')}\n   - **痛點:** ${p.painPoints.join('、')}\n   - **搜尋關鍵字:** ${p.keywords.join('、')}`
+        ).join('\n\n');
+
+        const prompt = `你是一位專業的內容策略師和簡報設計專家，專精於使用 Gamma.app 建立高品質的產品行銷簡報。
+
+**任務目標：**
+根據以下詳細的市場分析，為產品「${productInfo.name}」創建一篇具吸引力、SEO 優化的專業前導頁簡報內容，適用於 Gamma.app 平台。
+
+---
+
+**1. 文章主標題（請直接使用）：**
+"${topic.topic}"
+
+---
+
+**2. 核心推廣產品資訊：**
+- **產品名稱：** ${productInfo.name}
+- **產品描述：** ${productInfo.description}
+- **產品參考連結（用於連結與內容參考）：** ${productInfo.url || '無'}
+
+---
+
+**3. 目標受眾深度剖析（請以此為基礎進行撰寫）：**
+您正在為以下這些人物撰寫，請直接解決他們的需求與痛點：
+${personaDetails}
+
+---
+
+**4. 關鍵訊息與價值主張（文章必須強調）：**
+- **主要特色：** ${analysisResult.productCoreValue.mainFeatures.join('；')}
+- **核心優勢（獨特賣點）：** ${analysisResult.productCoreValue.coreAdvantages.join('；')}
+- **解決的痛點：** ${analysisResult.productCoreValue.painPointsSolved.join('；')}
+
+---
+
+**5. 內容與 SEO 要求：**
+- **主要關鍵字（Focus Keyword）：** \`${topic.focusKeyword}\`（請確保在標題、副標題和內文中自然地出現）
+- **長尾關鍵字（Long-tail Keywords）：** 請在文章中自然地融入以下詞組：${topic.longTailKeywords.join('、')}
+- **語意關鍵字（Semantic Keywords）：** 為了建立主題權威，請使用相關概念詞：${topic.seoGuidance.semanticKeywords.join('、')}
+- **建議文章結構：**
+  1. **開頭：** 使用一個引人入勝的引言，提及目標受眾的一個共同痛點，引起共鳴。
+  2. **發展：** 詳細闡述該問題，讓讀者感覺「你懂我」。
+  3. **解決方案：** 順勢引出「${productInfo.name}」作為理想的解決方案。自然地介紹其特色與優勢如何解決前述痛點。
+  4. **差異化：** ${analysisResult.competitorAnalysis.length > 0 ? `可以簡短提及與市場上其他方案（例如 ${analysisResult.competitorAnalysis[0].brandName}）的不同之處，突顯我們的獨特性。` : '強調產品的獨特價值與競爭優勢。'}
+  5. **結尾：** 用一個強而有力的總結收尾，並搭配明確的行動呼籲 (CTA)。
+- **寫作語氣：** 針對 **${productInfo.market}** 市場，語氣應專業、具說服力，並對用戶的問題表示同理心。參考語言特性：${analysisResult.marketPositioning.languageNuances}。
+
+---
+
+**6. 行動呼籲（Call to Action - CTA）：**
+請在文章結尾處，自然地整合以下至少一個 CTA 文案：
+${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
+
+---
+
+**7. Gamma.app 格式要求：**
+- 使用 Markdown 格式撰寫內容
+- 確保內容結構清晰，適合轉換為簡報格式
+- 每個段落應該能夠獨立成為一個簡報頁面
+- 使用適當的標題層級（# 主標題、## 副標題、### 小標題）
+- 加入適當的列表和重點標記
+- 內容長度建議在 800-1200 字之間
+
+---
+
+**8. 市場定位資訊：**
+- **目標市場：** ${productInfo.market}
+- **文化洞察：** ${analysisResult.marketPositioning.culturalInsights}
+- **消費習慣：** ${analysisResult.marketPositioning.consumerHabits}
+- **語言特性：** ${analysisResult.marketPositioning.languageNuances}
+- **搜尋趨勢：** ${analysisResult.marketPositioning.searchTrends.join('、')}
+
+---
+
+**開始生成內容：**
+請現在生成完整的 Gamma.app 簡報內容，使用 Markdown 格式，確保內容專業、吸引人且符合 SEO 最佳實踐。`.trim();
+
+        setPromptModalTitle('Gamma 生成提示詞');
+        setPromptModalContent(prompt);
+    }, [productInfo, analysisResult, contentStrategy]);
+
     const handleGenerateAIStudioPrompt = useCallback((topic: ContentTopic) => {
         if (!productInfo || !analysisResult || !contentStrategy) return;
 
@@ -679,7 +774,7 @@ function App() {
         const prompt = `你是一位專業的前端開發工程師，專精於使用 React 和 Tailwind CSS 建立高轉換率的前導頁。
 
 **任務目標：**
-為產品「${productInfo.name}」建立一個完整、可直接運行的 React 前導頁 HTML 檔案。
+為產品「${productInfo.name}」建立一個完整、可直接運行的 React 前導頁 HTML 檔案。這個前導頁必須具備高轉換率、專業設計，並完全符合 SEO 最佳實踐。
 
 **重要：請生成完整的 HTML 檔案，包含以下結構：**
 
@@ -733,11 +828,13 @@ root.render(<App />);
    ⚠️ 注意：必須檢查 root 元素是否存在，避免運行時錯誤
 
 4. **設計規範：**
-   - 使用 Tailwind CSS 進行樣式設計
-   - 色彩配置：主色 #3b82f6 (blue-500)，背景 #1e293b (slate-800)，文字 #f8fafc (slate-50)
-   - 必須完全響應式設計（支援手機、平板、桌面）
-   - 加入適當的動畫效果（如 fade-in、hover 效果）
-   - 使用高品質圖片：\`https://picsum.photos/seed/{產品名稱}/800/600\`
+   - 使用 Tailwind CSS 進行樣式設計，確保所有樣式都透過 Tailwind 類別實現
+   - 色彩配置：主色 #3b82f6 (blue-500)，次要色 #8b5cf6 (violet-500)，背景 #1e293b (slate-800)，文字 #f8fafc (slate-50)
+   - 必須完全響應式設計（支援手機、平板、桌面），使用 Tailwind 的響應式前綴（sm:, md:, lg:）
+   - 加入適當的動畫效果（如 fade-in、hover 效果、smooth transitions）
+   - 使用高品質圖片：\`https://picsum.photos/seed/${encodeURIComponent(productInfo.name)}/800/600\`
+   - 確保所有互動元素（按鈕、連結）都有清晰的視覺回饋
+   - 使用適當的間距和留白，提升閱讀體驗
 
 5. **頁面結構（必須包含以下區塊，按順序）：**
    
@@ -778,10 +875,20 @@ ${contentStrategy.ctaSuggestions.map(cta => `     - "${cta}"`).join('\n')}
    - 如果產品有網址，按鈕應連結到：${productInfo.url || '#'}
 
 6. **SEO 優化要求：**
-   - 主標題必須包含主要關鍵字：「${topic.focusKeyword}」
-   - 在內容中自然地融入以下長尾關鍵字：${topic.longTailKeywords.join('、')}
-   - 使用語意相關關鍵字：${topic.seoGuidance.semanticKeywords.join('、')}
-   - 關鍵字密度約 ${topic.seoGuidance.keywordDensity}
+   - **Meta 標籤：** 在 <head> 中加入完整的 SEO meta 標籤
+     - description: 包含主要關鍵字和產品核心價值（150-160 字元）
+     - keywords: 包含主要關鍵字、長尾關鍵字和語意關鍵字
+     - og:title, og:description, og:image（Open Graph 標籤）
+   - **結構化資料：** 考慮加入 JSON-LD 結構化資料（Product schema）
+   - **主標題（H1）：** 必須包含主要關鍵字：「${topic.focusKeyword}」，且只能有一個 H1
+   - **副標題（H2-H3）：** 適當地使用標題層級，自然地融入長尾關鍵字
+   - **內容優化：**
+     - 在內容中自然地融入以下長尾關鍵字：${topic.longTailKeywords.join('、')}
+     - 使用語意相關關鍵字：${topic.seoGuidance.semanticKeywords.join('、')}
+     - 關鍵字密度約 ${topic.seoGuidance.keywordDensity}
+     - 確保關鍵字自然出現，不要過度堆砌
+   - **內部連結：** ${topic.seoGuidance.linkingStrategy.internal}
+   - **外部連結：** ${topic.seoGuidance.linkingStrategy.external}
 
 7. **目標受眾資訊（用於撰寫內容）：**
 ${personaDetails}
@@ -795,13 +902,16 @@ ${personaDetails}
 **程式碼品質要求：**
 - ✅ 程式碼必須可以直接運行，無語法錯誤
 - ✅ 使用現代 React 語法（函數式元件、Hooks）
-- ✅ 確保所有變數都有適當的命名
-- ✅ 加入適當的註解說明重要區塊
-- ✅ 確保圖片 URL 正確且可訪問（使用 https://picsum.photos）
+- ✅ 確保所有變數都有適當的命名（使用有意義的變數名）
+- ✅ 加入適當的註解說明重要區塊和複雜邏輯
+- ✅ 確保圖片 URL 正確且可訪問（使用 https://picsum.photos，並包含 alt 屬性）
 - ✅ 所有文字內容使用繁體中文
 - ✅ 確保所有 JSX 標籤正確閉合
-- ✅ 確保所有字串使用正確的引號（單引號或雙引號）
+- ✅ 確保所有字串使用正確的引號（單引號或雙引號，保持一致）
 - ✅ 避免使用未定義的變數或函數
+- ✅ 確保所有事件處理函數都有適當的錯誤處理
+- ✅ 使用語義化 HTML 標籤（如 <header>, <main>, <section>, <article>, <footer>）
+- ✅ 確保無障礙設計（適當的 aria-label、role 等屬性）
 
 **常見錯誤避免：**
 - ❌ 不要使用 \`ReactDOM.render\`（已棄用）
@@ -864,6 +974,7 @@ ${personaDetails}
                         productInfo={productInfo}
                         analysisResult={analysisResult}
                         onGenerateAIStudioPrompt={handleGenerateAIStudioPrompt}
+                        onGenerateGammaPrompt={handleGenerateGammaPrompt}
                     />
                 )}
             </>
