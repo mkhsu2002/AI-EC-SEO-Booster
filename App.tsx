@@ -33,6 +33,22 @@ const Header: React.FC = () => (
     </header>
 );
 
+const Footer: React.FC = () => (
+    <footer className="w-full text-center py-6 mt-12 border-t border-slate-700">
+        <p className="text-text-secondary text-sm">
+            Open sourced by{' '}
+            <a 
+                href="https://flypigai.icareu.tw/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-brand-secondary hover:text-brand-light transition-colors underline"
+            >
+                FlyPig AI
+            </a>
+        </p>
+    </footer>
+);
+
 interface InputFormProps {
     onAnalyze: (info: ProductInfo) => void;
     isLoading: boolean;
@@ -889,6 +905,7 @@ ${personaDetails}
                     )}
                 </div>
             </main>
+            <Footer />
             {promptModalContent && (
                 <PromptModal prompt={promptModalContent} title={promptModalTitle} onClose={() => setPromptModalContent(null)} />
             )}
