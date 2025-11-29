@@ -1,10 +1,7 @@
 name = "ai-ec-seo-booster"
 compatibility_date = "2024-01-01"
 
-# Cloudflare Pages 會參考這個輸出目錄設定（BETA）
+# Cloudflare Pages (新版 wrangler for Pages) 只接受 pages_build_output_dir 等頁面相關設定，
+# 不支援傳統 Workers 的 [build] 區塊；實際的 build 指令請在 Pages 後台或 GitHub Actions 中設定。
 pages_build_output_dir = "dist"
-
-[build]
-command = "npm run build"
-cwd = "."
 

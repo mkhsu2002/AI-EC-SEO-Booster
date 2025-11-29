@@ -862,7 +862,7 @@ ${personaDetails}
                         onClick={() => setIsApiKeyModalOpen(true)}
                         className="bg-slate-800 hover:bg-slate-700 text-text-secondary font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out text-sm border border-slate-600"
                     >
-                        {apiKey ? '更新 API Key' : '設定 API Key'}
+                        API 設定
                     </button>
                     <button 
                         onClick={() => setIsIntroModalOpen(true)}
