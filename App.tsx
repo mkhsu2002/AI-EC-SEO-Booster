@@ -171,6 +171,8 @@ function App() {
                         analysisResult={analysisResult}
                         onGenerateAIStudioPrompt={handleGenerateAIStudioPrompt}
                         onGenerateGammaPrompt={handleGenerateGammaPrompt}
+                        onGenerateComprehensiveAIStudioPrompt={handleGenerateComprehensiveAIStudioPrompt}
+                        onGenerateComprehensiveGammaPrompt={handleGenerateComprehensiveGammaPrompt}
                         onDownloadAllPrompts={handleDownloadAllPrompts}
                         screenshotRef3={screenshotRef3}
                     />
