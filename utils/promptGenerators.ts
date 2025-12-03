@@ -536,6 +536,7 @@ export const generateComprehensiveAIStudioPrompt = (
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${productInfo.name} - 全方位解決方案</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="importmap">
     {
       "imports": {
@@ -547,8 +548,9 @@ export const generateComprehensiveAIStudioPrompt = (
 </head>
 <body class="bg-slate-900 text-slate-50">
     <div id="root"></div>
-    <script type="module">
+    <script type="text/babel" data-type="module">
         // 請在這裡生成完整的 React 程式碼
+        // 注意：使用 type="text/babel" 讓 Babel 自動轉譯 JSX
     </script>
 </body>
 </html>
@@ -556,7 +558,12 @@ export const generateComprehensiveAIStudioPrompt = (
 
 **React 程式碼要求（必須嚴格遵守）：**
 
-1. **導入語句（必須使用以下格式）：**
+1. **腳本標籤類型（關鍵）：**
+   - 必須使用 \`<script type="text/babel" data-type="module">\` 而不是 \`<script type="module">\`
+   - 這樣 Babel 才能自動轉譯 JSX 語法為瀏覽器可理解的 JavaScript
+   - \`data-type="module"\` 確保 ES6 模組語法正常工作
+
+2. **導入語句（必須使用以下格式）：**
 \`\`\`javascript
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -691,13 +698,17 @@ ${personaDetails}
 - ❌ 不要在 JSX 中使用未導入的元件
 - ❌ 不要忘記檢查 root 元素是否存在
 - ❌ 不要在 JSX 中直接使用未定義的變數
+- ❌ **絕對不要使用 \`<script type="module">\`，必須使用 \`<script type="text/babel" data-type="module">\` 來支援 JSX**
+- ❌ 不要忘記在 <head> 中包含 Babel standalone 腳本：\`<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>\`
 
 **輸出格式要求：**
 1. 必須輸出完整的 HTML 檔案
 2. 從 <!DOCTYPE html> 開始，到 </html> 結束
-3. 在 <script type="module"> 標籤內包含完整的 React 程式碼
-4. 程式碼必須可以直接複製貼上到瀏覽器或 AI Studio 中運行
-5. 不要只輸出部分程式碼，必須是完整的、可運行的檔案
+3. **必須在 <head> 中包含 Babel standalone：\`<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>\`**
+4. **必須使用 \`<script type="text/babel" data-type="module">\` 而不是 \`<script type="module">\`**
+5. 在 <script type="text/babel" data-type="module"> 標籤內包含完整的 React 程式碼
+6. 程式碼必須可以直接複製貼上到瀏覽器或 AI Studio 中運行，無需額外設定
+7. 不要只輸出部分程式碼，必須是完整的、可運行的檔案
 
 **開始生成程式碼：**
 請現在生成完整的 HTML 檔案，確保程式碼可以直接運行。內容必須完整涵蓋三個主題，並將它們整合成一個流暢的單頁應用。`.trim();
