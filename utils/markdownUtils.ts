@@ -1,7 +1,7 @@
 /**
  * Markdown 生成工具函數
  */
-import type { ProductInfo, AnalysisResult, ContentStrategy } from '../types';
+import type { ProductInfo, AnalysisResult, ContentStrategy, PosterProposals } from '../types';
 
 /**
  * 生成市場分析報告的 Markdown 內容
@@ -81,6 +81,40 @@ export const generateStrategyReport = (
   strategy.ctaSuggestions.forEach(cta => {
     report += `- "${cta}"\n`;
   });
+
+  return report;
+};
+
+/**
+ * 生成海報提案報告的 Markdown 內容
+ */
+export const generatePosterProposalsReport = (
+  productInfo: ProductInfo,
+  posterProposals: PosterProposals
+): string => {
+  let report = `# ${productInfo.name} - 商品海報提案報告\n\n`;
+  report += `**生成時間:** ${new Date().toLocaleString('zh-TW')}\n\n`;
+  report += `---\n\n`;
+
+  posterProposals.proposals.forEach((proposal, index) => {
+    report += `## 提案 ${index + 1}：${proposal.title}\n\n`;
+    report += `### 設計理念\n${proposal.description}\n\n`;
+    report += `### 設計概念\n${proposal.designConcept}\n\n`;
+    report += `### 色彩方案\n${proposal.colorScheme}\n\n`;
+    report += `### 關鍵視覺元素\n`;
+    proposal.keyVisualElements.forEach((element, i) => {
+      report += `${i + 1}. ${element}\n`;
+    });
+    report += `\n### 文字內容\n${proposal.textContent}\n\n`;
+    report += `### 圖片生成提示詞\n\`\`\`\n${proposal.prompt}\n\`\`\`\n\n`;
+    report += `---\n\n`;
+  });
+
+  report += `## 使用說明\n\n`;
+  report += `1. 每個提案都包含完整的設計概念、色彩方案、視覺元素和圖片生成提示詞\n`;
+  report += `2. 您可以選擇不同的尺寸（正方形、直式、手機直式、橫式）\n`;
+  report += `3. 可以上傳參考圖片來增強生成效果\n`;
+  report += `4. 使用提供的提示詞在圖片生成工具（如 DALL-E、Midjourney、Stable Diffusion）中生成海報圖片\n\n`;
 
   return report;
 };

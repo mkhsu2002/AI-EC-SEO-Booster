@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { ProductInfo, AnalysisResult, ContentStrategy, PosterProposals, PosterSize } from '../../types';
 import { ResultCard } from '../common/ResultCard';
-import { SparklesIcon } from '../icons';
+import { SparklesIcon, ArrowDownTrayIcon } from '../icons';
 import { PosterProposalCard } from './PosterProposalCard';
+import { generatePosterProposalsReport, downloadMarkdown } from '../../utils/markdownUtils';
 
 interface PosterProposalsDisplayProps {
   productInfo: ProductInfo | null;
@@ -35,11 +36,28 @@ export const PosterProposalsDisplay: React.FC<PosterProposalsDisplayProps> = ({
     return null;
   }
 
+  const handleDownload = () => {
+    if (!productInfo || !posterProposals) return;
+    const markdownContent = generatePosterProposalsReport(productInfo, posterProposals);
+    downloadMarkdown(markdownContent, `海報提案-${productInfo.name.replace(/\s+/g, '_')}.txt`);
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto py-8">
       <ResultCard
         title="第四步：商品海報提案"
         icon={<SparklesIcon className="w-8 h-8" />}
+        titleAction={
+          posterProposals && (
+            <button
+              onClick={handleDownload}
+              className="bg-brand-secondary hover:bg-brand-dark text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out text-sm inline-flex items-center"
+            >
+              <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+              下載提案報告
+            </button>
+          )
+        }
       >
         <div className="space-y-6">
           {!posterProposals && !isGenerating && !error && (
