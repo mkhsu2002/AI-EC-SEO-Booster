@@ -22,7 +22,14 @@ import { useContentStrategy } from './hooks/useContentStrategy';
 import { useScreenshot } from './hooks/useScreenshot';
 
 // Utils
-import { generateGammaPrompt, generateAIStudioPrompt, generateAllPromptsMarkdown } from './utils/promptGenerators';
+import { 
+  generateGammaPrompt, 
+  generateAIStudioPrompt, 
+  generateAllPromptsMarkdown,
+  generateComprehensiveGammaPrompt,
+  generateComprehensiveAIStudioPrompt,
+  calculateRecommendedPages
+} from './utils/promptGenerators';
 import { downloadMarkdown } from './utils/markdownUtils';
 
 function App() {
@@ -87,6 +94,22 @@ function App() {
         if (!productInfo || !analysisResult || !contentStrategy) return;
     const markdownContent = generateAllPromptsMarkdown(productInfo, analysisResult, contentStrategy);
     downloadMarkdown(markdownContent, `完整提示詞集合-${productInfo.name.replace(/\s+/g, '_')}.txt`);
+  }, [productInfo, analysisResult, contentStrategy]);
+
+  const handleGenerateComprehensiveGammaPrompt = useCallback(() => {
+    if (!productInfo || !analysisResult || !contentStrategy) return;
+    const prompt = generateComprehensiveGammaPrompt(productInfo, analysisResult, contentStrategy);
+    const recommendedPages = calculateRecommendedPages(contentStrategy.contentTopics);
+    setPromptModalTitle(`Gamma 綜合性主題提示詞（建議約 ${recommendedPages} 頁）`);
+    setPromptModalContent(prompt);
+  }, [productInfo, analysisResult, contentStrategy]);
+
+  const handleGenerateComprehensiveAIStudioPrompt = useCallback(() => {
+    if (!productInfo || !analysisResult || !contentStrategy) return;
+    const prompt = generateComprehensiveAIStudioPrompt(productInfo, analysisResult, contentStrategy);
+    const recommendedPages = calculateRecommendedPages(contentStrategy.contentTopics);
+    setPromptModalTitle(`AI Studio 綜合性主題提示詞（建議約 ${recommendedPages} 頁）`);
+    setPromptModalContent(prompt);
   }, [productInfo, analysisResult, contentStrategy]);
 
   const handleDownloadAllScreenshots = useCallback(async () => {

@@ -5,6 +5,7 @@ import { SparklesIcon, ArrowDownTrayIcon } from '../icons';
 import { ContentTopicCard } from './ContentTopicCard';
 import { InteractiveElementCard } from './InteractiveElementCard';
 import { generateStrategyReport, downloadMarkdown } from '../../utils/markdownUtils';
+import { calculateRecommendedPages } from '../../utils/promptGenerators';
 
 interface ContentStrategyDisplayProps {
   strategy: ContentStrategy;
@@ -12,6 +13,8 @@ interface ContentStrategyDisplayProps {
   analysisResult: AnalysisResult | null;
   onGenerateAIStudioPrompt: (topic: ContentTopic) => void;
   onGenerateGammaPrompt: (topic: ContentTopic) => void;
+  onGenerateComprehensiveAIStudioPrompt?: () => void;
+  onGenerateComprehensiveGammaPrompt?: () => void;
   onDownloadAllPrompts?: () => void;
   screenshotRef3?: React.RefObject<HTMLDivElement>;
 }
@@ -21,7 +24,9 @@ export const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({
   productInfo, 
   analysisResult, 
   onGenerateAIStudioPrompt, 
-  onGenerateGammaPrompt, 
+  onGenerateGammaPrompt,
+  onGenerateComprehensiveAIStudioPrompt,
+  onGenerateComprehensiveGammaPrompt,
   onDownloadAllPrompts, 
   screenshotRef3 
 }) => {
@@ -66,7 +71,45 @@ export const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({
             <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 AI Studio 或 Gamma 的提示詞。</p>
           </div>
 
+          {/* 綜合性主題按鈕 */}
+          {(onGenerateComprehensiveAIStudioPrompt || onGenerateComprehensiveGammaPrompt) && (
+            <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 p-6 rounded-lg border border-purple-700/50">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h4 className="text-lg font-bold text-brand-light mb-2">🎯 綜合性全方位主題</h4>
+                  <p className="text-text-secondary text-sm mb-2">
+                    將三個主題整合為一個完整的綜合性議題，適合在單一頁面中呈現所有內容。
+                  </p>
+                  <p className="text-purple-300 text-sm font-semibold">
+                    建議頁面數：約 {calculateRecommendedPages(strategy.contentTopics)} 頁
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {onGenerateComprehensiveAIStudioPrompt && (
+                    <button
+                      onClick={onGenerateComprehensiveAIStudioPrompt}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out text-sm inline-flex items-center"
+                    >
+                      <SparklesIcon className="w-5 h-5 mr-2" />
+                      AI Studio 綜合提示詞
+                    </button>
+                  )}
+                  {onGenerateComprehensiveGammaPrompt && (
+                    <button
+                      onClick={onGenerateComprehensiveGammaPrompt}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out text-sm inline-flex items-center"
+                    >
+                      <SparklesIcon className="w-5 h-5 mr-2" />
+                      Gamma 綜合提示詞
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
+            <h4 className="text-lg font-bold text-brand-light mb-4">個別主題提示詞</h4>
             <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">
               {strategy.contentTopics.map((topic, i) => 
                 <ContentTopicCard 
