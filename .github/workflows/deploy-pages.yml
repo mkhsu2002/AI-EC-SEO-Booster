@@ -1,0 +1,81 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - dev/v1.2
+  workflow_dispatch: # 允許手動觸發
+
+# 設定 GITHUB_TOKEN 權限，允許部署到 GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 允許一個並發部署
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          echo "Checking build output..."
+          ls -la dist/
+          echo "---"
+          ls -la dist/assets/
+          echo "---"
+          echo "Checking index.html content:"
+          cat dist/index.html | grep -E "script|module"
+          echo "---"
+          echo "Checking .nojekyll:"
+          test -f dist/.nojekyll && echo ".nojekyll exists" || echo ".nojekyll missing"
+          if [ -f dist/.nojekyll ]; then
+            echo ".nojekyll file size: $(wc -c < dist/.nojekyll) bytes"
+            echo ".nojekyll content: '$(cat dist/.nojekyll)'"
+          fi
+          echo "---"
+          echo "Verifying JS file exists:"
+          JS_FILE=$(grep -oP 'src="\./assets/[^"]+\.js"' dist/index.html | sed 's/src="\.\/assets\///;s/"//')
+          if [ -n "$JS_FILE" ]; then
+            echo "JS file from HTML: $JS_FILE"
+            test -f "dist/assets/$JS_FILE" && echo "JS file exists" || echo "JS file MISSING!"
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
