@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - dev/v1.1
+      - dev/v1.2
   workflow_dispatch: # 允許手動觸發
 
 # 設定 GITHUB_TOKEN 權限，允許部署到 GitHub Pages
