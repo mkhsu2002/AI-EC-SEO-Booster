@@ -1,665 +1,26 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { analyzeMarket, generateContentStrategy } from './services/geminiService';
 import { useApiKey } from './contexts/ApiKeyContext';
 import { ApiKeyModal } from './components/ApiKeyModal';
-import html2canvas from 'html2canvas';
-import type { AnalysisResult, BuyerPersona, Competitor, ProductInfo, ContentStrategy, ContentTopic, InteractiveElement } from './types';
+import type { AnalysisResult, ProductInfo, ContentStrategy, ContentTopic } from './types';
 
-// --- Helper Functions ---
-const fileToBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = error => reject(error);
-  });
+// Components
+import { Header } from './components/common/Header';
+import { Footer } from './components/common/Footer';
+import { Loader } from './components/common/Loader';
+import { ErrorDisplay } from './components/common/ErrorDisplay';
+import { InputForm } from './components/forms/InputForm';
+import { AnalysisResultDisplay } from './components/analysis/AnalysisResultDisplay';
+import { ContentStrategyDisplay } from './components/strategy/ContentStrategyDisplay';
+import { PromptModal } from './components/modals/PromptModal';
+import { InfoModal } from './components/modals/InfoModal';
+import { FeatureIntroductionContent } from './components/modals/FeatureIntroductionContent';
+import { SparklesIcon, ArrowPathIcon } from './components/icons';
 
-// --- SVG Icon Components ---
-const ChartBarIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>);
-const DocumentTextIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>);
-const UserGroupIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m-7.5-2.962c.57-1.023.994-2.131 1.253-3.284A3 3 0 0 0 11.25 9.75v-1.5a3 3 0 0 0-3.75-2.632m3.75 0-1.007-1.007a3 3 0 0 0-4.243 0M3.75 19.125A9.094 9.094 0 0 1 7.5 18a9.094 9.094 0 0 1 3.75 1.125m-3.75 0a3 3 0 0 0-3.75 2.632A3 3 0 0 0 7.5 19.125m6-6.375a3 3 0 0 0-3-3m3 3a3 3 0 0 0 3 3m-3-3V1.5m-3 5.25v1.5a3 3 0 0 0 3 3m3-3a3 3 0 0 0-3-3" /></svg>);
-const LightBulbIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.311a6.01 6.01 0 0 0 4.5 0m-8.625-1.401a6.01 6.01 0 0 1 4.5 0m-4.5 0a3.75 3.75 0 0 0-3.75 3.75H3a3.75 3.75 0 0 0 3.75-3.75m6.75-3a3.75 3.75 0 0 0 3.75-3.75V3a3.75 3.75 0 0 0-3.75-3.75S9 3 9 3v6.75a3.75 3.75 0 0 0 3.75 3.75Z" /></svg>);
-const SparklesIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>);
-const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.667 0l3.181-3.183m-3.181-4.991-3.181-3.183a8.25 8.25 0 0 0-11.667 0L2.985 14.651" /></svg>);
-const ArrowDownTrayIcon: React.FC<{ className?: string }> = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>);
-const EyeIcon: React.FC<{ className?: string }> = ({ className }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>);
-
-
-// --- UI Components ---
-
-const Header: React.FC = () => (
-    <header className="w-full text-center py-6 border-b border-slate-700">
-        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600">電商SEO加速器 v1.2</h1>
-        <p className="text-text-secondary mt-2">從市場洞察到前導頁生成，一站式 AI 解決方案。</p>
-    </header>
-);
-
-const Footer: React.FC = () => (
-    <footer className="w-full text-center py-6 mt-12 border-t border-slate-700">
-        <p className="text-text-secondary text-sm">
-            Open sourced by{' '}
-            <a 
-                href="https://flypigai.icareu.tw/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-brand-secondary hover:text-brand-light transition-colors underline"
-            >
-                FlyPig AI
-            </a>
-        </p>
-    </footer>
-);
-
-interface InputFormProps {
-    onAnalyze: (info: ProductInfo) => void;
-    isLoading: boolean;
-}
-const InputForm: React.FC<InputFormProps> = ({ onAnalyze, isLoading }) => {
-    const [productName, setProductName] = useState('');
-    const [productUrl, setProductUrl] = useState('');
-    const [productDescription, setProductDescription] = useState('');
-    const [targetMarket, setTargetMarket] = useState('');
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [fileName, setFileName] = useState('');
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!productName || !productDescription || !targetMarket) {
-            alert("請填寫所有必要的文字欄位。");
-            return;
-        }
-        let imagePayload: ProductInfo['image'];
-        if (imageFile) {
-            const base64 = await fileToBase64(imageFile);
-            imagePayload = { base64, mimeType: imageFile.type };
-        }
-        onAnalyze({ name: productName, url: productUrl, description: productDescription, market: targetMarket, image: imagePayload });
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setImageFile(file);
-            setFileName(file.name);
-
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-    
-    return (
-        <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto space-y-6 animate-fade-in">
-             <div className="space-y-2">
-                <label htmlFor="productName" className="font-medium text-text-secondary">產品名稱</label>
-                <input id="productName" type="text" value={productName} onChange={e => setProductName(e.target.value)} placeholder="例如：人體工學辦公椅" required className="w-full bg-slate-800 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-brand-secondary focus:outline-none transition" />
-            </div>
-            <div className="space-y-2">
-                <label htmlFor="productUrl" className="font-medium text-text-secondary">產品連結網址 (選填)</label>
-                <input id="productUrl" type="url" value={productUrl} onChange={e => setProductUrl(e.target.value)} placeholder="https://example.com/product-page" className="w-full bg-slate-800 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-brand-secondary focus:outline-none transition" />
-            </div>
-            <div className="space-y-2">
-                <label htmlFor="productDescription" className="font-medium text-text-secondary">產品描述與特色</label>
-                <textarea id="productDescription" value={productDescription} onChange={e => setProductDescription(e.target.value)} placeholder="在此貼上產品詳細資訊、規格與主要賣點..." required rows={6} className="w-full bg-slate-800 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-brand-secondary focus:outline-none transition resize-y" />
-            </div>
-            <div className="space-y-2">
-                <label htmlFor="targetMarket" className="font-medium text-text-secondary">目標市場</label>
-                <input id="targetMarket" type="text" value={targetMarket} onChange={e => setTargetMarket(e.target.value)} placeholder="例如：台灣、美國加州或日本東京" required className="w-full bg-slate-800 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-brand-secondary focus:outline-none transition" />
-            </div>
-            <div className="space-y-2">
-                <span className="font-medium text-text-secondary">產品圖片 (選填)</span>
-                <label htmlFor="productImage" className="mt-1 group block cursor-pointer">
-                    <div className={`flex justify-center items-center w-full min-h-[12rem] px-6 py-4 border-2 ${previewUrl ? 'border-slate-700' : 'border-dashed border-slate-600'} rounded-lg bg-slate-800/50 hover:border-brand-secondary transition-colors`}>
-                        {previewUrl ? (
-                            <div className="text-center relative">
-                                <img src={previewUrl} alt="產品預覽" className="max-h-56 w-auto rounded-md shadow-lg" />
-                                <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-md">
-                                    <span className="text-white text-lg font-semibold">更換圖片</span>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center">
-                                <svg className="mx-auto h-12 w-12 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L22.5 12.75" /></svg>
-                                <div className="mt-4 flex text-sm justify-center leading-6 text-slate-400">
-                                    <p>
-                                        <span className="font-semibold text-brand-secondary">點擊以上傳</span>
-                                        <span className="pl-1">或拖曳圖片至此</span>
-                                    </p>
-                                </div>
-                                <p className="text-xs leading-5 text-slate-500">PNG, JPG, GIF 等格式</p>
-                            </div>
-                        )}
-                    </div>
-                </label>
-                {fileName && <p className="text-sm text-slate-400 mt-2 text-center">已選取檔案：{fileName}</p>}
-                <input id="productImage" type="file" onChange={handleFileChange} accept="image/*" className="hidden" />
-            </div>
-            <button type="submit" disabled={isLoading} className="w-full bg-brand-secondary hover:bg-brand-dark text-white font-bold py-3 px-4 rounded-md transition duration-300 ease-in-out transform hover:scale-105 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center">
-                 {isLoading ? '分析中...' : '生成市場分析報告'}
-                 {isLoading && <div className="ml-3 border-t-transparent border-solid animate-spin rounded-full border-white border-2 h-5 w-5"></div>}
-            </button>
-        </form>
-    );
-};
-
-const Loader: React.FC<{title: string; message: string; icon?: React.ReactNode}> = ({title, message, icon}) => (
-    <div className="text-center py-20 space-y-4 animate-fade-in">
-        <div className="animate-pulse-fast text-brand-secondary">
-            {icon || <ChartBarIcon className="w-16 h-16 mx-auto" />}
-        </div>
-        <p className="text-xl font-semibold text-text-primary">{title}</p>
-        <p className="text-text-secondary">{message}</p>
-    </div>
-);
-
-const ErrorDisplay: React.FC<{ title: string; message: string; }> = ({ title, message }) => (
-    <div className="text-center my-10 p-6 text-red-400 bg-red-900/20 border border-red-500 rounded-md max-w-2xl mx-auto animate-fade-in">
-        <h2 className="text-xl font-bold mb-2">{title}</h2>
-        <p>{message}</p>
-    </div>
-);
-
-const ResultCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; className?: string, titleAction?: React.ReactNode }> = ({ title, icon, children, className = '', titleAction }) => (
-    <div className={`bg-surface rounded-lg shadow-lg p-6 border border-slate-700 animate-slide-in-up ${className}`}>
-        <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-                <div className="p-2 bg-brand-primary/20 rounded-md mr-4 text-brand-secondary">{icon}</div>
-                <h3 className="text-2xl font-bold text-text-primary">{title}</h3>
-            </div>
-            {titleAction}
-        </div>
-        {children}
-    </div>
-);
-
-const Tag: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <span className="bg-brand-dark text-brand-light text-sm font-medium mr-2 mb-2 px-3 py-1 rounded-full">{children}</span>
-);
-
-interface AnalysisResultDisplayProps {
-    result: AnalysisResult;
-    productInfo: ProductInfo | null;
-    screenshotRef1?: React.RefObject<HTMLDivElement>;
-    screenshotRef2?: React.RefObject<HTMLDivElement>;
-    onDownloadScreenshots?: () => void;
-}
-
-const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result, productInfo, screenshotRef1, screenshotRef2, onDownloadScreenshots }) => {
-    const { productCoreValue, marketPositioning, competitorAnalysis, buyerPersonas } = result;
-
-    const handleDownload = () => {
-        if (!productInfo) return;
-
-        const generateMarkdownReport = () => {
-            let report = `# ${productInfo.name} - 市場分析報告\n\n`;
-            if (productInfo.url) {
-                report += `**產品連結:** [${productInfo.url}](${productInfo.url})\n\n`;
-            }
-
-            report += `## 產品核心價值\n\n`;
-            report += `### 主要特色\n${productCoreValue.mainFeatures.map(f => `- ${f}`).join('\n')}\n\n`;
-            report += `### 核心優勢\n${productCoreValue.coreAdvantages.map(a => `- ${a}`).join('\n')}\n\n`;
-            report += `### 解決的痛點\n${productCoreValue.painPointsSolved.map(p => `- ${p}`).join('\n')}\n\n`;
-
-            report += `## 目標市場定位\n\n`;
-            report += `**文化洞察:** ${marketPositioning.culturalInsights}\n\n`;
-            report += `**消費習慣:** ${marketPositioning.consumerHabits}\n\n`;
-            report += `**語言特性:** ${marketPositioning.languageNuances}\n\n`;
-            report += `**搜尋趨勢:**\n${marketPositioning.searchTrends.map(t => `- \`${t}\``).join('\n')}\n\n`;
-
-            report += `## 競爭對手分析\n\n`;
-            competitorAnalysis.forEach(c => {
-                report += `### ${c.brandName}\n`;
-                report += `**行銷策略:** ${c.marketingStrategy}\n\n`;
-                report += `**優勢:**\n${c.strengths.map(s => `  - ${s}`).join('\n')}\n\n`;
-                report += `**劣勢:**\n${c.weaknesses.map(w => `  - ${w}`).join('\n')}\n\n`;
-            });
-
-            report += `## 潛在客戶描繪\n\n`;
-            buyerPersonas.forEach(p => {
-                report += `### ${p.personaName}\n`;
-                report += `**基本資料:** ${p.demographics}\n\n`;
-                report += `**興趣:** ${p.interests.join(', ')}\n\n`;
-                report += `**痛點:**\n${p.painPoints.map(pp => `  - ${pp}`).join('\n')}\n\n`;
-                report += `**他們會搜尋的關鍵字:**\n${p.keywords.map(k => `- \`${k}\``).join('\n')}\n\n`;
-            });
-
-            return report;
-        };
-        
-        const markdownContent = generateMarkdownReport();
-        const blob = new Blob([markdownContent], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `市場分析報告-${productInfo.name.replace(/\s+/g, '_')}.txt`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    return (
-        <div className="w-full max-w-6xl mx-auto space-y-8 py-8 animate-fade-in">
-             <ResultCard 
-                title="分析報告" 
-                icon={<ChartBarIcon className="w-8 h-8"/>}
-                titleAction={
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={handleDownload} 
-                            disabled={!productInfo}
-                            className="bg-brand-secondary hover:bg-brand-dark text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out text-sm inline-flex items-center disabled:bg-slate-600 disabled:cursor-not-allowed"
-                        >
-                            <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
-                            下載報告
-                        </button>
-                        {onDownloadScreenshots && (
-                            <button 
-                                onClick={onDownloadScreenshots} 
-                                disabled={!productInfo}
-                                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out text-sm inline-flex items-center disabled:bg-slate-600 disabled:cursor-not-allowed"
-                                title="下載分析報告截圖"
-                            >
-                                <EyeIcon className="w-5 h-5 mr-2" />
-                                下載截圖
-                            </button>
-                        )}
-                    </div>
-                }
-             >
-                <p className="text-text-secondary">以下是根據您提供的產品資訊生成的綜合市場分析報告。</p>
-             </ResultCard>
-
-            <div ref={screenshotRef1}>
-                <ResultCard title="產品核心價值" icon={<LightBulbIcon className="w-8 h-8"/>}>
-                <div className="grid md:grid-cols-3 gap-6">
-                    <div>
-                        <h4 className="font-semibold text-lg mb-2 text-brand-light">主要特色</h4>
-                        <ul className="list-disc list-inside space-y-1 text-text-secondary">{productCoreValue.mainFeatures.map((item, i) => <li key={i}>{item}</li>)}</ul>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold text-lg mb-2 text-brand-light">核心優勢</h4>
-                        <ul className="list-disc list-inside space-y-1 text-text-secondary">{productCoreValue.coreAdvantages.map((item, i) => <li key={i}>{item}</li>)}</ul>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold text-lg mb-2 text-brand-light">解決的痛點</h4>
-                        <ul className="list-disc list-inside space-y-1 text-text-secondary">{productCoreValue.painPointsSolved.map((item, i) => <li key={i}>{item}</li>)}</ul>
-                    </div>
-                </div>
-                </ResultCard>
-                <ResultCard title="目標市場定位" icon={<ChartBarIcon className="w-8 h-8" />}>
-                 <div className="space-y-4">
-                    <p><strong className="text-brand-light">文化洞察:</strong> <span className="text-text-secondary">{marketPositioning.culturalInsights}</span></p>
-                    <p><strong className="text-brand-light">消費習慣:</strong> <span className="text-text-secondary">{marketPositioning.consumerHabits}</span></p>
-                    <p><strong className="text-brand-light">語言特性:</strong> <span className="text-text-secondary">{marketPositioning.languageNuances}</span></p>
-                    <div>
-                        <h4 className="font-semibold text-lg mb-2 text-brand-light">搜尋趨勢</h4>
-                        <div className="flex flex-wrap">{marketPositioning.searchTrends.map((trend, i) => <Tag key={i}>{trend}</Tag>)}</div>
-                    </div>
-                </div>
-                </ResultCard>
-            </div>
-            <div ref={screenshotRef2}>
-                <ResultCard title="競爭對手分析" icon={<DocumentTextIcon className="w-8 h-8" />}>
-                <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">{competitorAnalysis.map((c, i) => <CompetitorCard key={i} competitor={c} />)}</div>
-                </ResultCard>
-                <ResultCard title="潛在客戶描繪" icon={<UserGroupIcon className="w-8 h-8" />}>
-                    <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">{buyerPersonas.map((p, i) => <PersonaCard key={i} persona={p} />)}</div>
-                </ResultCard>
-            </div>
-        </div>
-    );
-};
-
-const CompetitorCard: React.FC<{ competitor: Competitor }> = ({ competitor }) => (
-    <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-3">
-        <h4 className="text-xl font-bold text-brand-secondary">{competitor.brandName}</h4>
-        <p className="text-sm text-text-secondary italic">{competitor.marketingStrategy}</p>
-        <div>
-            <h5 className="font-semibold text-green-400">優勢</h5>
-            <ul className="list-disc list-inside text-sm text-text-secondary">{competitor.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
-        </div>
-        <div>
-            <h5 className="font-semibold text-red-400">劣勢</h5>
-            <ul className="list-disc list-inside text-sm text-text-secondary">{competitor.weaknesses.map((w, i) => <li key={i}>{w}</li>)}</ul>
-        </div>
-    </div>
-);
-
-const PersonaCard: React.FC<{ persona: BuyerPersona }> = ({ persona }) => (
-    <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-3">
-        <h4 className="text-xl font-bold text-brand-secondary">{persona.personaName}</h4>
-        <p className="text-sm font-medium bg-slate-700 p-2 rounded">{persona.demographics}</p>
-        <div>
-            <h5 className="font-semibold text-brand-light">興趣</h5>
-            <p className="text-sm text-text-secondary">{persona.interests.join(', ')}</p>
-        </div>
-         <div>
-            <h5 className="font-semibold text-brand-light">痛點</h5>
-             <ul className="list-disc list-inside text-sm text-text-secondary">{persona.painPoints.map((p, i) => <li key={i}>{p}</li>)}</ul>
-        </div>
-        <div>
-            <h5 className="font-semibold text-brand-light">他們會搜尋的關鍵字</h5>
-            <div className="flex flex-wrap pt-2">{persona.keywords.map((keyword, i) => <Tag key={i}>{keyword}</Tag>)}</div>
-        </div>
-    </div>
-);
-
-interface ContentStrategyDisplayProps {
-  strategy: ContentStrategy;
-  productInfo: ProductInfo | null;
-  analysisResult: AnalysisResult | null;
-  onGenerateAIStudioPrompt: (topic: ContentTopic) => void;
-  onGenerateGammaPrompt: (topic: ContentTopic) => void;
-  onDownloadAllPrompts?: () => void;
-  screenshotRef3?: React.RefObject<HTMLDivElement>;
-}
-
-const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({ strategy, productInfo, analysisResult, onGenerateAIStudioPrompt, onGenerateGammaPrompt, onDownloadAllPrompts, screenshotRef3 }) => {
-    
-    const handleDownload = () => {
-        if (!productInfo) return;
-
-        const generateMarkdownReport = () => {
-            let report = `# ${productInfo.name} - 內容與互動策略\n\n`;
-            
-            report += "## 內容主題\n\n";
-            strategy.contentTopics.forEach(topic => {
-                report += `### 主題: ${topic.topic}\n`;
-                report += `**描述:** ${topic.description}\n`;
-                report += `**主要關鍵字:** \`${topic.focusKeyword}\`\n`;
-                report += `**長尾關鍵字:** ${topic.longTailKeywords.map(k => `\`${k}\``).join(', ')}\n`;
-                report += `**SEO 指導:**\n`;
-                report += `  - **關鍵字密度:** ${topic.seoGuidance.keywordDensity}\n`;
-                report += `  - **語意關鍵字:** ${topic.seoGuidance.semanticKeywords.join(', ')}\n`;
-                report += `  - **內部連結策略:** ${topic.seoGuidance.linkingStrategy.internal}\n`;
-                report += `  - **外部連結策略:** ${topic.seoGuidance.linkingStrategy.external}\n\n`;
-            });
-
-            report += "## 互動元素建議\n\n";
-            strategy.interactiveElements.forEach(el => {
-                report += `### ${el.type}\n`;
-                report += `${el.description}\n\n`;
-            });
-
-            report += "## 行動呼籲 (CTA) 文案建議\n\n";
-            strategy.ctaSuggestions.forEach(cta => {
-                report += `- "${cta}"\n`;
-            });
-
-            return report;
-        };
-        
-        const markdownContent = generateMarkdownReport();
-        const blob = new Blob([markdownContent], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `內容策略-${productInfo.name.replace(/\s+/g, '_')}.txt`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    return (
-    <div className="w-full max-w-6xl mx-auto py-8" ref={screenshotRef3}>
-        <ResultCard 
-            title="內容與互動策略" 
-            icon={<SparklesIcon className="w-8 h-8" />}
-            titleAction={
-                <div className="flex gap-2">
-                    <button 
-                        onClick={handleDownload} 
-                        disabled={!productInfo}
-                        className="bg-brand-secondary hover:bg-brand-dark text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out text-sm inline-flex items-center disabled:bg-slate-600 disabled:cursor-not-allowed"
-                    >
-                        <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
-                        下載策略
-                    </button>
-                    {onDownloadAllPrompts && (
-                        <button 
-                            onClick={onDownloadAllPrompts} 
-                            disabled={!productInfo}
-                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out text-sm inline-flex items-center disabled:bg-slate-600 disabled:cursor-not-allowed"
-                            title="下載所有提示詞（6段：3個主題 × AI Studio + Gamma）"
-                        >
-                            <SparklesIcon className="w-5 h-5 mr-2" />
-                            下載所有提示詞
-                        </button>
-                    )}
-                </div>
-            }
-        >
-            <div className="space-y-8">
-                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-                    <h4 className="text-xl font-bold text-brand-light mb-3">第三步：生成前導頁提示詞</h4>
-                    <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 AI Studio 或 Gamma 的提示詞。</p>
-                </div>
-
-                <div>
-                    <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">
-                        {strategy.contentTopics.map((topic, i) => 
-                            <ContentTopicCard 
-                                key={i} 
-                                topic={topic}
-                                onGenerateAIStudioPrompt={() => onGenerateAIStudioPrompt(topic)}
-                                onGenerateGammaPrompt={() => onGenerateGammaPrompt(topic)}
-                            />
-                        )}
-                    </div>
-                </div>
-                 <div className="grid md:grid-cols-2 gap-8 pt-4 border-t border-slate-700">
-                    <div>
-                        <h4 className="text-xl font-bold text-brand-light mb-4">建議的互動元素</h4>
-                        <div className="space-y-4">
-                            {strategy.interactiveElements.map((el, i) => <InteractiveElementCard key={i} element={el} />)}
-                        </div>
-                    </div>
-                    <div>
-                        <h4 className="text-xl font-bold text-brand-light mb-4">建議的行動呼籲 (CTA) 文案</h4>
-                        <div className="space-y-4">
-                            {strategy.ctaSuggestions.map((cta, i) => (
-                                <blockquote key={i} className="border-l-4 border-brand-secondary bg-slate-800 p-4 rounded-r-lg">
-                                    <p className="italic text-text-secondary">"{cta}"</p>
-                                </blockquote>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </ResultCard>
-    </div>
-)};
-
-interface ContentTopicCardProps {
-    topic: ContentTopic;
-    onGenerateAIStudioPrompt: () => void;
-    onGenerateGammaPrompt: () => void;
-}
-
-const ContentTopicCard: React.FC<ContentTopicCardProps> = ({ topic, onGenerateAIStudioPrompt, onGenerateGammaPrompt }) => {
-    return (
-    <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 space-y-3 flex flex-col justify-between">
-        <div>
-            <h5 className="text-lg font-bold text-brand-secondary">{topic.topic}</h5>
-            <p className="text-sm text-text-secondary mt-2 mb-4">{topic.description}</p>
-            
-            <div className="space-y-3 text-sm border-t border-slate-700 pt-3">
-                 <h6 className="font-semibold text-brand-light">SEO 指導方針</h6>
-                 <p className="text-text-secondary"><strong className="text-slate-400">關鍵字密度:</strong> {topic.seoGuidance.keywordDensity}</p>
-                 <div>
-                    <strong className="text-slate-400">語意相關關鍵字:</strong>
-                    <div className="flex flex-wrap pt-1">
-                        {topic.seoGuidance.semanticKeywords.map((kw, i) => <Tag key={i}>{kw}</Tag>)}
-                    </div>
-                 </div>
-            </div>
-        </div>
-        <div className="mt-4 space-y-2">
-            <button 
-                onClick={onGenerateAIStudioPrompt} 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm shadow-md hover:shadow-lg"
-            >
-                <SparklesIcon className="w-4 h-4 mr-2" />
-                生成 AI Studio 提示詞
-            </button>
-            <button 
-                onClick={onGenerateGammaPrompt} 
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center text-sm shadow-md hover:shadow-lg"
-            >
-                <SparklesIcon className="w-4 h-4 mr-2" />
-                生成 Gamma 提示詞
-            </button>
-        </div>
-    </div>
-)};
-
-const InteractiveElementCard: React.FC<{ element: InteractiveElement }> = ({ element }) => (
-     <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-        <h5 className="font-bold text-brand-secondary">{element.type}</h5>
-        <p className="text-sm text-text-secondary mt-1">{element.description}</p>
-    </div>
-);
-
-const PromptModal: React.FC<{ prompt: string; onClose: () => void; title: string; }> = ({ prompt, onClose, title }) => {
-    const [isCopied, setIsCopied] = useState(false);
-    const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-
-    const handleCopy = () => {
-        if (textareaRef.current) {
-            navigator.clipboard.writeText(textareaRef.current.value);
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
-        }
-    };
-    
-    // Close modal on escape key
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [onClose]);
-
-    return (
-        <div 
-            className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 animate-fade-in p-4"
-            onClick={onClose}
-        >
-            <div 
-                className="bg-surface rounded-lg shadow-xl w-full max-w-3xl border border-slate-700 flex flex-col max-h-full"
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-            >
-                <div className="p-5 border-b border-slate-700 flex justify-between items-center flex-shrink-0">
-                    <h2 className="text-xl font-bold text-text-primary">{title}</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-                </div>
-                <div className="p-5 overflow-y-auto">
-                    <p className="text-text-secondary mb-4 text-sm">
-                        請複製以下提示詞，並將其貼到對應的 AI 工具中以生成高品質內容。
-                    </p>
-                    <textarea 
-                        ref={textareaRef}
-                        readOnly 
-                        value={prompt} 
-                        className="w-full h-96 bg-slate-800 border border-slate-600 rounded-md p-3 text-sm text-slate-300 resize-none focus:ring-2 focus:ring-brand-secondary focus:outline-none" 
-                    />
-                </div>
-                <div className="p-4 border-t border-slate-700 flex justify-end flex-shrink-0 bg-slate-800/50 rounded-b-lg">
-                    <button 
-                        onClick={handleCopy}
-                        className="bg-brand-secondary hover:bg-brand-dark text-white font-bold py-2 px-5 rounded-md transition duration-300 ease-in-out inline-flex items-center"
-                    >
-                        {isCopied ? '已複製！' : '複製提示詞'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const InfoModal: React.FC<{ title: string; children: React.ReactNode; onClose: () => void; }> = ({ title, children, onClose }) => {
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [onClose]);
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 animate-fade-in p-4" onClick={onClose}>
-            <div className="bg-surface rounded-lg shadow-xl w-full max-w-3xl border border-slate-700 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-                <div className="p-5 border-b border-slate-700 flex justify-between items-center flex-shrink-0">
-                    <h2 className="text-xl font-bold text-text-primary">{title}</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-                </div>
-                <div className="p-6 overflow-y-auto text-text-secondary space-y-4">
-                    {children}
-                </div>
-                <div className="p-4 border-t border-slate-700 flex justify-end flex-shrink-0 bg-slate-800/50 rounded-b-lg">
-                    <button onClick={onClose} className="bg-brand-secondary hover:bg-brand-dark text-white font-bold py-2 px-5 rounded-md transition">
-                        關閉
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const FeatureIntroductionContent: React.FC = () => (
-    <>
-        <p className="mb-6">「FlyPig AI 電商增長神器」是一個從市場策略、內容規劃到技術實現的全流程加速器，旨在為您的電商事業節省大量時間與人力成本，實現更快速、更智慧的業務增長。</p>
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-lg font-semibold text-brand-light mb-2">🚀 全方位市場深度透視</h3>
-                <ul className="list-disc list-inside space-y-1 pl-2">
-                    <li>**智慧產品分析：** 只需提供產品資訊，AI 就能自動拆解其核心賣點，更可上傳圖片進行視覺分析。</li>
-                    <li>**精準市場定位：** 深入剖析目標市場的文化、消費習慣和熱門趨勢。</li>
-                    <li>**競爭格局掃描：** 自動識別主要競爭對手，並透視其行銷策略與優劣勢。</li>
-                    <li>**清晰用戶畫像：** 為您描繪出最真實的潛在客戶樣貌 (Buyer Persona)，包含興趣、痛點與搜尋關鍵字。</li>
-                </ul>
-            </div>
-            <div>
-                <h3 className="text-lg font-semibold text-brand-light mb-2">✍️ 自動化內容與 SEO 策略規劃</h3>
-                <ul className="list-disc list-inside space-y-1 pl-2">
-                     <li>**高價值內容主題生成：** AI 自動規劃最能吸引目標客群的內容主題。</li>
-                     <li>**專業 SEO 佈局建議：** 為每個主題提供完整的 SEO 策略，協助網站獲得更高排名。</li>
-                     <li>**高轉換率文案點子：** 提供多組具說服力的行動呼籲 (CTA) 文案。</li>
-                </ul>
-            </div>
-            <div>
-                <h3 className="text-lg font-semibold text-brand-light mb-2">💻 一鍵生成前導頁提示詞</h3>
-                 <ul className="list-disc list-inside space-y-1 pl-2">
-                     <li>**AI Studio 前導頁程式碼生成：** 一鍵生成專業提示詞，讓 AI 程式碼助理（如 Google AI Studio）在幾秒內產出高品質的 React 前導頁程式碼。</li>
-                 </ul>
-            </div>
-        </div>
-         <h3 className="text-lg font-semibold text-brand-light mt-8 mb-2">💡 如何使用</h3>
-         <ol className="list-decimal list-inside space-y-2 pl-2">
-             <li>**第一步：輸入產品資訊** - 填寫產品資料並點擊「生成市場分析報告」。</li>
-             <li>**第二步：生成內容策略** - 報告產出後，點擊「生成內容策略」按鈕，AI 將規劃出詳細的內容與 SEO 策略。</li>
-             <li>**第三步：生成前導頁提示詞** - 從建議的內容主題中，點擊「生成 AI Studio 提示詞」按鈕，複製提示詞後貼到 AI 程式碼助理（如 Google AI Studio）中即可快速產出高品質的前導頁。</li>
-         </ol>
-    </>
-);
-
-
-// --- Main App Component ---
+// Utils
+import { generateGammaPrompt, generateAIStudioPrompt, generateAllPromptsMarkdown } from './utils/promptGenerators';
+import { downloadMarkdown } from './utils/markdownUtils';
+import { captureAndDownloadScreenshot } from './utils/screenshotUtils';
 
 function App() {
     const { apiKey } = useApiKey();
@@ -678,6 +39,11 @@ function App() {
     
     const [isIntroModalOpen, setIsIntroModalOpen] = useState(false);
     const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+
+  // Screenshot refs
+  const screenshotRef1 = useRef<HTMLDivElement>(null);
+  const screenshotRef2 = useRef<HTMLDivElement>(null);
+  const screenshotRef3 = useRef<HTMLDivElement>(null);
 
     const handleAnalyze = useCallback(async (productInfo: ProductInfo) => {
         if (!apiKey) {
@@ -722,604 +88,46 @@ function App() {
 
     const handleGenerateGammaPrompt = useCallback((topic: ContentTopic) => {
         if (!productInfo || !analysisResult || !contentStrategy) return;
-
-        const personaDetails = analysisResult.buyerPersonas.map(p => 
-            `- **${p.personaName} (${p.demographics}):**\n   - **興趣:** ${p.interests.join('、')}\n   - **痛點:** ${p.painPoints.join('、')}\n   - **搜尋關鍵字:** ${p.keywords.join('、')}`
-        ).join('\n\n');
-
-        const prompt = `你是一位專業的內容策略師和簡報設計專家，專精於使用 Gamma.app 建立高品質的產品行銷簡報。
-
-**任務目標：**
-根據以下詳細的市場分析，為產品「${productInfo.name}」創建一篇具吸引力、SEO 優化的專業前導頁簡報內容，適用於 Gamma.app 平台。
-
----
-
-**1. 文章主標題（請直接使用）：**
-"${topic.topic}"
-
----
-
-**2. 核心推廣產品資訊：**
-- **產品名稱：** ${productInfo.name}
-- **產品描述：** ${productInfo.description}
-- **產品參考連結（用於連結與內容參考）：** ${productInfo.url || '無'}
-
----
-
-**3. 目標受眾深度剖析（請以此為基礎進行撰寫）：**
-您正在為以下這些人物撰寫，請直接解決他們的需求與痛點：
-${personaDetails}
-
----
-
-**4. 關鍵訊息與價值主張（文章必須強調）：**
-- **主要特色：** ${analysisResult.productCoreValue.mainFeatures.join('；')}
-- **核心優勢（獨特賣點）：** ${analysisResult.productCoreValue.coreAdvantages.join('；')}
-- **解決的痛點：** ${analysisResult.productCoreValue.painPointsSolved.join('；')}
-
----
-
-**5. 內容與 SEO 要求：**
-- **主要關鍵字（Focus Keyword）：** \`${topic.focusKeyword}\`（請確保在標題、副標題和內文中自然地出現）
-- **長尾關鍵字（Long-tail Keywords）：** 請在文章中自然地融入以下詞組：${topic.longTailKeywords.join('、')}
-- **語意關鍵字（Semantic Keywords）：** 為了建立主題權威，請使用相關概念詞：${topic.seoGuidance.semanticKeywords.join('、')}
-- **建議文章結構：**
-  1. **開頭：** 使用一個引人入勝的引言，提及目標受眾的一個共同痛點，引起共鳴。
-  2. **發展：** 詳細闡述該問題，讓讀者感覺「你懂我」。
-  3. **解決方案：** 順勢引出「${productInfo.name}」作為理想的解決方案。自然地介紹其特色與優勢如何解決前述痛點。
-  4. **差異化：** ${analysisResult.competitorAnalysis.length > 0 ? `可以簡短提及與市場上其他方案（例如 ${analysisResult.competitorAnalysis[0].brandName}）的不同之處，突顯我們的獨特性。` : '強調產品的獨特價值與競爭優勢。'}
-  5. **結尾：** 用一個強而有力的總結收尾，並搭配明確的行動呼籲 (CTA)。
-- **寫作語氣：** 針對 **${productInfo.market}** 市場，語氣應專業、具說服力，並對用戶的問題表示同理心。參考語言特性：${analysisResult.marketPositioning.languageNuances}。
-
----
-
-**6. 行動呼籲（Call to Action - CTA）：**
-請在文章結尾處，自然地整合以下至少一個 CTA 文案：
-${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
-
----
-
-**7. Gamma.app 格式要求：**
-- 使用 Markdown 格式撰寫內容
-- 確保內容結構清晰，適合轉換為簡報格式
-- 每個段落應該能夠獨立成為一個簡報頁面
-- 使用適當的標題層級（# 主標題、## 副標題、### 小標題）
-- 加入適當的列表和重點標記
-- 內容長度建議在 800-1200 字之間
-
----
-
-**8. 市場定位資訊：**
-- **目標市場：** ${productInfo.market}
-- **文化洞察：** ${analysisResult.marketPositioning.culturalInsights}
-- **消費習慣：** ${analysisResult.marketPositioning.consumerHabits}
-- **語言特性：** ${analysisResult.marketPositioning.languageNuances}
-- **搜尋趨勢：** ${analysisResult.marketPositioning.searchTrends.join('、')}
-
----
-
-**開始生成內容：**
-請現在生成完整的 Gamma.app 簡報內容，使用 Markdown 格式，確保內容專業、吸引人且符合 SEO 最佳實踐。`.trim();
-
+    const prompt = generateGammaPrompt(productInfo, analysisResult, topic, contentStrategy);
         setPromptModalTitle('Gamma 生成提示詞');
         setPromptModalContent(prompt);
     }, [productInfo, analysisResult, contentStrategy]);
 
     const handleGenerateAIStudioPrompt = useCallback((topic: ContentTopic) => {
         if (!productInfo || !analysisResult || !contentStrategy) return;
-
-        const personaDetails = analysisResult.buyerPersonas.map(p => 
-            `- ${p.personaName} (${p.demographics}): 興趣包括 ${p.interests.join('、')}，面臨的痛點是 ${p.painPoints.join('、')}`
-        ).join('\n');
-
-        const prompt = `你是一位專業的前端開發工程師，專精於使用 React 和 Tailwind CSS 建立高轉換率的前導頁。
-
-**任務目標：**
-為產品「${productInfo.name}」建立一個完整、可直接運行的 React 前導頁 HTML 檔案。這個前導頁必須具備高轉換率、專業設計，並完全符合 SEO 最佳實踐。
-
-**重要：請生成完整的 HTML 檔案，包含以下結構：**
-
-\`\`\`html
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${productInfo.name} - ${topic.topic}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@19.1.1",
-        "react-dom/client": "https://esm.sh/react-dom@19.1.1/client"
-      }
-    }
-    </script>
-</head>
-<body class="bg-slate-900 text-slate-50">
-    <div id="root"></div>
-    <script type="module">
-        // 請在這裡生成完整的 React 程式碼
-    </script>
-</body>
-</html>
-\`\`\`
-
-**React 程式碼要求（必須嚴格遵守）：**
-
-1. **導入語句（必須使用以下格式）：**
-\`\`\`javascript
-import React, { useState } from 'react';
-import { createRoot } from 'react-dom/client';
-\`\`\`
-   ⚠️ 注意：不要使用 \`ReactDOM.createRoot\`，必須使用 \`createRoot\` 從 \`react-dom/client\` 導入
-
-2. **元件結構：**
-   - 建立一個名為 \`App\` 的函數式元件
-   - 使用 \`export default\` 或直接定義函數
-   - 所有 JSX 內容都應該在 App 元件內返回
-
-3. **渲染方式（必須使用以下格式）：**
-\`\`\`javascript
-const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('Root element not found');
-const root = createRoot(rootElement);
-root.render(<App />);
-\`\`\`
-   ⚠️ 注意：必須檢查 root 元素是否存在，避免運行時錯誤
-
-4. **設計規範：**
-   - 使用 Tailwind CSS 進行樣式設計，確保所有樣式都透過 Tailwind 類別實現
-   - 色彩配置：主色 #3b82f6 (blue-500)，次要色 #8b5cf6 (violet-500)，背景 #1e293b (slate-800)，文字 #f8fafc (slate-50)
-   - 必須完全響應式設計（支援手機、平板、桌面），使用 Tailwind 的響應式前綴（sm:, md:, lg:）
-   - 加入適當的動畫效果（如 fade-in、hover 效果、smooth transitions）
-   - 使用高品質圖片：\`https://picsum.photos/seed/${encodeURIComponent(productInfo.name)}/800/600\`
-   - 確保所有互動元素（按鈕、連結）都有清晰的視覺回饋
-   - 使用適當的間距和留白，提升閱讀體驗
-
-5. **頁面結構（必須包含以下區塊，按順序）：**
-   
-   **a) Header（頁首）：**
-   - 顯示產品名稱：「${productInfo.name}」
-   - 包含一個主要的 CTA 按鈕，文字使用：「${contentStrategy.ctaSuggestions[0] || '立即探索'}」
-   
-   **b) Hero Section（主視覺區）：**
-   - 主標題：「${topic.topic}」
-   - 副標題：簡短有力的描述，說明產品如何解決問題
-   - 一張吸引人的產品相關圖片
-   - 一個醒目的 CTA 按鈕
-   
-   **c) Pain Points Section（痛點區）：**
-   - 標題：「是否這就是您遇到的困擾？」
-   - 列出以下痛點（每個痛點一個項目）：
-${analysisResult.productCoreValue.painPointsSolved.map(p => `     - ${p}`).join('\n')}
-   - 使用圖示或視覺元素增強效果
-   
-   **d) Solution/Features Section（解決方案/特色區）：**
-   - 標題：「${productInfo.name} 為您提供完美解決方案」
-   - 產品描述：${productInfo.description}
-   - 主要特色（每個特色一個卡片或區塊）：
-${analysisResult.productCoreValue.mainFeatures.map(f => `     - ${f}`).join('\n')}
-   - 核心優勢（突出顯示）：
-${analysisResult.productCoreValue.coreAdvantages.map(a => `     - ${a}`).join('\n')}
-   
-   **e) Testimonials Section（見證區）：**
-   - 標題：「使用者真實見證」
-   - 建立 2-3 個見證卡片，每個代表一個買家人設：
-${analysisResult.buyerPersonas.slice(0, 3).map((p, i) => `     ${i + 1}. ${p.personaName} (${p.demographics})：撰寫一段符合此人物特色的見證文字`).join('\n')}
-   
-   **f) Final CTA Section（最終行動呼籲區）：**
-   - 強而有力的標題
-   - 使用以下其中一個 CTA 文案：
-${contentStrategy.ctaSuggestions.map(cta => `     - "${cta}"`).join('\n')}
-   - 大型、醒目的按鈕
-   - 如果產品有網址，按鈕應連結到：${productInfo.url || '#'}
-
-6. **SEO 優化要求：**
-   - **Meta 標籤：** 在 <head> 中加入完整的 SEO meta 標籤
-     - description: 包含主要關鍵字和產品核心價值（150-160 字元）
-     - keywords: 包含主要關鍵字、長尾關鍵字和語意關鍵字
-     - og:title, og:description, og:image（Open Graph 標籤）
-   - **結構化資料：** 考慮加入 JSON-LD 結構化資料（Product schema）
-   - **主標題（H1）：** 必須包含主要關鍵字：「${topic.focusKeyword}」，且只能有一個 H1
-   - **副標題（H2-H3）：** 適當地使用標題層級，自然地融入長尾關鍵字
-   - **內容優化：**
-     - 在內容中自然地融入以下長尾關鍵字：${topic.longTailKeywords.join('、')}
-     - 使用語意相關關鍵字：${topic.seoGuidance.semanticKeywords.join('、')}
-     - 關鍵字密度約 ${topic.seoGuidance.keywordDensity}
-     - 確保關鍵字自然出現，不要過度堆砌
-   - **內部連結：** ${topic.seoGuidance.linkingStrategy.internal}
-   - **外部連結：** ${topic.seoGuidance.linkingStrategy.external}
-
-7. **目標受眾資訊（用於撰寫內容）：**
-${personaDetails}
-
-8. **市場定位資訊：**
-   - 目標市場：${productInfo.market}
-   - 文化洞察：${analysisResult.marketPositioning.culturalInsights}
-   - 消費習慣：${analysisResult.marketPositioning.consumerHabits}
-   - 語言特性：${analysisResult.marketPositioning.languageNuances}
-
-**程式碼品質要求：**
-- ✅ 程式碼必須可以直接運行，無語法錯誤
-- ✅ 使用現代 React 語法（函數式元件、Hooks）
-- ✅ 確保所有變數都有適當的命名（使用有意義的變數名）
-- ✅ 加入適當的註解說明重要區塊和複雜邏輯
-- ✅ 確保圖片 URL 正確且可訪問（使用 https://picsum.photos，並包含 alt 屬性）
-- ✅ 所有文字內容使用繁體中文
-- ✅ 確保所有 JSX 標籤正確閉合
-- ✅ 確保所有字串使用正確的引號（單引號或雙引號，保持一致）
-- ✅ 避免使用未定義的變數或函數
-- ✅ 確保所有事件處理函數都有適當的錯誤處理
-- ✅ 使用語義化 HTML 標籤（如 <header>, <main>, <section>, <article>, <footer>）
-- ✅ 確保無障礙設計（適當的 aria-label、role 等屬性）
-
-**常見錯誤避免：**
-- ❌ 不要使用 \`ReactDOM.render\`（已棄用）
-- ❌ 不要使用 \`ReactDOM.createRoot\`（應從 react-dom/client 導入 createRoot）
-- ❌ 不要在 JSX 中使用未導入的元件
-- ❌ 不要忘記檢查 root 元素是否存在
-- ❌ 不要在 JSX 中直接使用未定義的變數
-
-**輸出格式要求：**
-1. 必須輸出完整的 HTML 檔案
-2. 從 <!DOCTYPE html> 開始，到 </html> 結束
-3. 在 <script type="module"> 標籤內包含完整的 React 程式碼
-4. 程式碼必須可以直接複製貼上到瀏覽器或 AI Studio 中運行
-5. 不要只輸出部分程式碼，必須是完整的、可運行的檔案
-
-**開始生成程式碼：**
-請現在生成完整的 HTML 檔案，確保程式碼可以直接運行。
-        `.trim();
-
+    const prompt = generateAIStudioPrompt(productInfo, analysisResult, topic, contentStrategy);
         setPromptModalTitle('AI Studio 生成提示詞');
         setPromptModalContent(prompt);
     }, [productInfo, analysisResult, contentStrategy]);
 
-    // 生成單個 AI Studio 提示詞（內部函數，用於批量生成）
-    const generateAIStudioPromptText = useCallback((topic: ContentTopic): string => {
-        if (!productInfo || !analysisResult || !contentStrategy) return '';
-
-        const personaDetails = analysisResult.buyerPersonas.map(p => 
-            `- ${p.personaName} (${p.demographics}): 興趣包括 ${p.interests.join('、')}，面臨的痛點是 ${p.painPoints.join('、')}`
-        ).join('\n');
-
-        return `你是一位專業的前端開發工程師，專精於使用 React 和 Tailwind CSS 建立高轉換率的前導頁。
-
-**任務目標：**
-為產品「${productInfo.name}」建立一個完整、可直接運行的 React 前導頁 HTML 檔案。這個前導頁必須具備高轉換率、專業設計，並完全符合 SEO 最佳實踐。
-
-**重要：請生成完整的 HTML 檔案，包含以下結構：**
-
-\`\`\`html
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${productInfo.name} - ${topic.topic}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@19.1.1",
-        "react-dom/client": "https://esm.sh/react-dom@19.1.1/client"
-      }
-    }
-    </script>
-</head>
-<body class="bg-slate-900 text-slate-50">
-    <div id="root"></div>
-    <script type="module">
-        // 請在這裡生成完整的 React 程式碼
-    </script>
-</body>
-</html>
-\`\`\`
-
-**React 程式碼要求（必須嚴格遵守）：**
-
-1. **導入語句（必須使用以下格式）：**
-\`\`\`javascript
-import React, { useState } from 'react';
-import { createRoot } from 'react-dom/client';
-\`\`\`
-   ⚠️ 注意：不要使用 \`ReactDOM.createRoot\`，必須使用 \`createRoot\` 從 \`react-dom/client\` 導入
-
-2. **元件結構：**
-   - 建立一個名為 \`App\` 的函數式元件
-   - 使用 \`export default\` 或直接定義函數
-   - 所有 JSX 內容都應該在 App 元件內返回
-
-3. **渲染方式（必須使用以下格式）：**
-\`\`\`javascript
-const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('Root element not found');
-const root = createRoot(rootElement);
-root.render(<App />);
-\`\`\`
-   ⚠️ 注意：必須檢查 root 元素是否存在，避免運行時錯誤
-
-4. **設計規範：**
-   - 使用 Tailwind CSS 進行樣式設計，確保所有樣式都透過 Tailwind 類別實現
-   - 色彩配置：主色 #3b82f6 (blue-500)，次要色 #8b5cf6 (violet-500)，背景 #1e293b (slate-800)，文字 #f8fafc (slate-50)
-   - 必須完全響應式設計（支援手機、平板、桌面），使用 Tailwind 的響應式前綴（sm:, md:, lg:）
-   - 加入適當的動畫效果（如 fade-in、hover 效果、smooth transitions）
-   - 使用高品質圖片：\`https://picsum.photos/seed/${encodeURIComponent(productInfo.name)}/800/600\`
-   - 確保所有互動元素（按鈕、連結）都有清晰的視覺回饋
-   - 使用適當的間距和留白，提升閱讀體驗
-
-5. **頁面結構（必須包含以下區塊，按順序）：**
-   
-   **a) Header（頁首）：**
-   - 顯示產品名稱：「${productInfo.name}」
-   - 包含一個主要的 CTA 按鈕，文字使用：「${contentStrategy.ctaSuggestions[0] || '立即探索'}」
-   
-   **b) Hero Section（主視覺區）：**
-   - 主標題：「${topic.topic}」
-   - 副標題：簡短有力的描述，說明產品如何解決問題
-   - 一張吸引人的產品相關圖片
-   - 一個醒目的 CTA 按鈕
-   
-   **c) Pain Points Section（痛點區）：**
-   - 標題：「是否這就是您遇到的困擾？」
-   - 列出以下痛點（每個痛點一個項目）：
-${analysisResult.productCoreValue.painPointsSolved.map(p => `     - ${p}`).join('\n')}
-   - 使用圖示或視覺元素增強效果
-   
-   **d) Solution/Features Section（解決方案/特色區）：**
-   - 標題：「${productInfo.name} 為您提供完美解決方案」
-   - 產品描述：${productInfo.description}
-   - 主要特色（每個特色一個卡片或區塊）：
-${analysisResult.productCoreValue.mainFeatures.map(f => `     - ${f}`).join('\n')}
-   - 核心優勢（突出顯示）：
-${analysisResult.productCoreValue.coreAdvantages.map(a => `     - ${a}`).join('\n')}
-   
-   **e) Testimonials Section（見證區）：**
-   - 標題：「使用者真實見證」
-   - 建立 2-3 個見證卡片，每個代表一個買家人設：
-${analysisResult.buyerPersonas.slice(0, 3).map((p, i) => `     ${i + 1}. ${p.personaName} (${p.demographics})：撰寫一段符合此人物特色的見證文字`).join('\n')}
-   
-   **f) Final CTA Section（最終行動呼籲區）：**
-   - 強而有力的標題
-   - 使用以下其中一個 CTA 文案：
-${contentStrategy.ctaSuggestions.map(cta => `     - "${cta}"`).join('\n')}
-   - 大型、醒目的按鈕
-   - 如果產品有網址，按鈕應連結到：${productInfo.url || '#'}
-
-6. **SEO 優化要求：**
-   - **Meta 標籤：** 在 <head> 中加入完整的 SEO meta 標籤
-     - description: 包含主要關鍵字和產品核心價值（150-160 字元）
-     - keywords: 包含主要關鍵字、長尾關鍵字和語意關鍵字
-     - og:title, og:description, og:image（Open Graph 標籤）
-   - **結構化資料：** 考慮加入 JSON-LD 結構化資料（Product schema）
-   - **主標題（H1）：** 必須包含主要關鍵字：「${topic.focusKeyword}」，且只能有一個 H1
-   - **副標題（H2-H3）：** 適當地使用標題層級，自然地融入長尾關鍵字
-   - **內容優化：**
-     - 在內容中自然地融入以下長尾關鍵字：${topic.longTailKeywords.join('、')}
-     - 使用語意相關關鍵字：${topic.seoGuidance.semanticKeywords.join('、')}
-     - 關鍵字密度約 ${topic.seoGuidance.keywordDensity}
-     - 確保關鍵字自然出現，不要過度堆砌
-   - **內部連結：** ${topic.seoGuidance.linkingStrategy.internal}
-   - **外部連結：** ${topic.seoGuidance.linkingStrategy.external}
-
-7. **目標受眾資訊（用於撰寫內容）：**
-${personaDetails}
-
-8. **市場定位資訊：**
-   - 目標市場：${productInfo.market}
-   - 文化洞察：${analysisResult.marketPositioning.culturalInsights}
-   - 消費習慣：${analysisResult.marketPositioning.consumerHabits}
-   - 語言特性：${analysisResult.marketPositioning.languageNuances}
-
-**程式碼品質要求：**
-- ✅ 程式碼必須可以直接運行，無語法錯誤
-- ✅ 使用現代 React 語法（函數式元件、Hooks）
-- ✅ 確保所有變數都有適當的命名（使用有意義的變數名）
-- ✅ 加入適當的註解說明重要區塊和複雜邏輯
-- ✅ 確保圖片 URL 正確且可訪問（使用 https://picsum.photos，並包含 alt 屬性）
-- ✅ 所有文字內容使用繁體中文
-- ✅ 確保所有 JSX 標籤正確閉合
-- ✅ 確保所有字串使用正確的引號（單引號或雙引號，保持一致）
-- ✅ 避免使用未定義的變數或函數
-- ✅ 確保所有事件處理函數都有適當的錯誤處理
-- ✅ 使用語義化 HTML 標籤（如 <header>, <main>, <section>, <article>, <footer>）
-- ✅ 確保無障礙設計（適當的 aria-label、role 等屬性）
-
-**常見錯誤避免：**
-- ❌ 不要使用 \`ReactDOM.render\`（已棄用）
-- ❌ 不要使用 \`ReactDOM.createRoot\`（應從 react-dom/client 導入 createRoot）
-- ❌ 不要在 JSX 中使用未導入的元件
-- ❌ 不要忘記檢查 root 元素是否存在
-- ❌ 不要在 JSX 中直接使用未定義的變數
-
-**輸出格式要求：**
-1. 必須輸出完整的 HTML 檔案
-2. 從 <!DOCTYPE html> 開始，到 </html> 結束
-3. 在 <script type="module"> 標籤內包含完整的 React 程式碼
-4. 程式碼必須可以直接複製貼上到瀏覽器或 AI Studio 中運行
-5. 不要只輸出部分程式碼，必須是完整的、可運行的檔案
-
-**開始生成程式碼：**
-請現在生成完整的 HTML 檔案，確保程式碼可以直接運行。`.trim();
-    }, [productInfo, analysisResult, contentStrategy]);
-
-    // 生成單個 Gamma 提示詞（內部函數，用於批量生成）
-    const generateGammaPromptText = useCallback((topic: ContentTopic): string => {
-        if (!productInfo || !analysisResult || !contentStrategy) return '';
-
-        const personaDetails = analysisResult.buyerPersonas.map(p => 
-            `- **${p.personaName} (${p.demographics}):**\n   - **興趣:** ${p.interests.join('、')}\n   - **痛點:** ${p.painPoints.join('、')}\n   - **搜尋關鍵字:** ${p.keywords.join('、')}`
-        ).join('\n\n');
-
-        return `你是一位專業的內容策略師和簡報設計專家，專精於使用 Gamma.app 建立高品質的產品行銷簡報。
-
-**任務目標：**
-根據以下詳細的市場分析，為產品「${productInfo.name}」創建一篇具吸引力、SEO 優化的專業前導頁簡報內容，適用於 Gamma.app 平台。
-
----
-
-**1. 文章主標題（請直接使用）：**
-"${topic.topic}"
-
----
-
-**2. 核心推廣產品資訊：**
-- **產品名稱：** ${productInfo.name}
-- **產品描述：** ${productInfo.description}
-- **產品參考連結（用於連結與內容參考）：** ${productInfo.url || '無'}
-
----
-
-**3. 目標受眾深度剖析（請以此為基礎進行撰寫）：**
-您正在為以下這些人物撰寫，請直接解決他們的需求與痛點：
-${personaDetails}
-
----
-
-**4. 關鍵訊息與價值主張（文章必須強調）：**
-- **主要特色：** ${analysisResult.productCoreValue.mainFeatures.join('；')}
-- **核心優勢（獨特賣點）：** ${analysisResult.productCoreValue.coreAdvantages.join('；')}
-- **解決的痛點：** ${analysisResult.productCoreValue.painPointsSolved.join('；')}
-
----
-
-**5. 內容與 SEO 要求：**
-- **主要關鍵字（Focus Keyword）：** \`${topic.focusKeyword}\`（請確保在標題、副標題和內文中自然地出現）
-- **長尾關鍵字（Long-tail Keywords）：** 請在文章中自然地融入以下詞組：${topic.longTailKeywords.join('、')}
-- **語意關鍵字（Semantic Keywords）：** 為了建立主題權威，請使用相關概念詞：${topic.seoGuidance.semanticKeywords.join('、')}
-- **建議文章結構：**
-  1. **開頭：** 使用一個引人入勝的引言，提及目標受眾的一個共同痛點，引起共鳴。
-  2. **發展：** 詳細闡述該問題，讓讀者感覺「你懂我」。
-  3. **解決方案：** 順勢引出「${productInfo.name}」作為理想的解決方案。自然地介紹其特色與優勢如何解決前述痛點。
-  4. **差異化：** ${analysisResult.competitorAnalysis.length > 0 ? `可以簡短提及與市場上其他方案（例如 ${analysisResult.competitorAnalysis[0].brandName}）的不同之處，突顯我們的獨特性。` : '強調產品的獨特價值與競爭優勢。'}
-  5. **結尾：** 用一個強而有力的總結收尾，並搭配明確的行動呼籲 (CTA)。
-- **寫作語氣：** 針對 **${productInfo.market}** 市場，語氣應專業、具說服力，並對用戶的問題表示同理心。參考語言特性：${analysisResult.marketPositioning.languageNuances}。
-
----
-
-**6. 行動呼籲（Call to Action - CTA）：**
-請在文章結尾處，自然地整合以下至少一個 CTA 文案：
-${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
-
----
-
-**7. Gamma.app 格式要求：**
-- 使用 Markdown 格式撰寫內容
-- 確保內容結構清晰，適合轉換為簡報格式
-- 每個段落應該能夠獨立成為一個簡報頁面
-- 使用適當的標題層級（# 主標題、## 副標題、### 小標題）
-- 加入適當的列表和重點標記
-- 內容長度建議在 800-1200 字之間
-
----
-
-**8. 市場定位資訊：**
-- **目標市場：** ${productInfo.market}
-- **文化洞察：** ${analysisResult.marketPositioning.culturalInsights}
-- **消費習慣：** ${analysisResult.marketPositioning.consumerHabits}
-- **語言特性：** ${analysisResult.marketPositioning.languageNuances}
-- **搜尋趨勢：** ${analysisResult.marketPositioning.searchTrends.join('、')}
-
----
-
-**開始生成內容：**
-請現在生成完整的 Gamma.app 簡報內容，使用 Markdown 格式，確保內容專業、吸引人且符合 SEO 最佳實踐。`.trim();
-    }, [productInfo, analysisResult, contentStrategy]);
-
-    // 一鍵下載所有提示詞（6段：3個主題 × AI Studio + Gamma）
     const handleDownloadAllPrompts = useCallback(() => {
         if (!productInfo || !analysisResult || !contentStrategy) return;
-
-        let allPrompts = `# ${productInfo.name} - 完整前導頁提示詞集合\n\n`;
-        allPrompts += `**生成日期：** ${new Date().toLocaleString('zh-TW')}\n\n`;
-        allPrompts += `**產品資訊：**\n`;
-        allPrompts += `- 產品名稱：${productInfo.name}\n`;
-        if (productInfo.url) {
-            allPrompts += `- 產品連結：${productInfo.url}\n`;
-        }
-        allPrompts += `- 目標市場：${productInfo.market}\n\n`;
-        allPrompts += `---\n\n`;
-
-        contentStrategy.contentTopics.forEach((topic, index) => {
-            allPrompts += `## 主題 ${index + 1}：${topic.topic}\n\n`;
-            
-            // AI Studio 提示詞
-            allPrompts += `### AI Studio 提示詞\n\n`;
-            allPrompts += `\`\`\`\n${generateAIStudioPromptText(topic)}\n\`\`\`\n\n`;
-            allPrompts += `---\n\n`;
-            
-            // Gamma 提示詞
-            allPrompts += `### Gamma 提示詞\n\n`;
-            allPrompts += `\`\`\`\n${generateGammaPromptText(topic)}\n\`\`\`\n\n`;
-            allPrompts += `---\n\n`;
-        });
-
-        const blob = new Blob([allPrompts], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `完整提示詞集合-${productInfo.name.replace(/\s+/g, '_')}.txt`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }, [productInfo, analysisResult, contentStrategy, generateAIStudioPromptText, generateGammaPromptText]);
-
-    // 截圖並下載功能
-    const screenshotRef1 = useRef<HTMLDivElement>(null);
-    const screenshotRef2 = useRef<HTMLDivElement>(null);
-    const screenshotRef3 = useRef<HTMLDivElement>(null);
-
-    const handleScreenshot = useCallback(async (ref: React.RefObject<HTMLDivElement>, filename: string) => {
-        if (!ref.current) return;
-
-        try {
-            const canvas = await html2canvas(ref.current, {
-                backgroundColor: '#0f172a',
-                scale: 2,
-                logging: false,
-                useCORS: true,
-            });
-            
-            canvas.toBlob((blob) => {
-                if (!blob) return;
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-            }, 'image/png');
-        } catch (error) {
-            console.error('截圖失敗:', error);
-            alert('截圖失敗，請稍後再試');
-        }
-    }, []);
+    const markdownContent = generateAllPromptsMarkdown(productInfo, analysisResult, contentStrategy);
+    downloadMarkdown(markdownContent, `完整提示詞集合-${productInfo.name.replace(/\s+/g, '_')}.txt`);
+  }, [productInfo, analysisResult, contentStrategy]);
 
     const handleDownloadAllScreenshots = useCallback(async () => {
         if (!productInfo) return;
-
         const productName = productInfo.name.replace(/\s+/g, '_');
         
-        // 依序截圖並下載
+    try {
         if (screenshotRef1.current) {
-            await handleScreenshot(screenshotRef1, `${productName}-1_產品核心價值與目標市場定位.png`);
-            await new Promise(resolve => setTimeout(resolve, 500)); // 等待一下避免瀏覽器阻擋
+        await captureAndDownloadScreenshot(screenshotRef1.current, `${productName}-1_產品核心價值與目標市場定位.png`);
+        await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         if (screenshotRef2.current) {
-            await handleScreenshot(screenshotRef2, `${productName}-2_競爭對手分析與潛在客戶描繪.png`);
+        await captureAndDownloadScreenshot(screenshotRef2.current, `${productName}-2_競爭對手分析與潛在客戶描繪.png`);
             await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         if (screenshotRef3.current) {
-            await handleScreenshot(screenshotRef3, `${productName}-3_內容與互動策略.png`);
+        await captureAndDownloadScreenshot(screenshotRef3.current, `${productName}-3_內容與互動策略.png`);
+      }
+    } catch (error) {
+      alert('截圖失敗，請稍後再試');
         }
-    }, [productInfo, handleScreenshot]);
-
+  }, [productInfo]);
 
     const handleStartOver = () => {
         setIsLoading(false);
@@ -1334,8 +142,12 @@ ${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
     };
     
     const renderContent = () => {
-        if (isLoading) return <Loader title="正在進行深度分析..." message="AI 正在分析市場、競爭對手與潛在客戶。" />;
-        if (error) return <ErrorDisplay title="分析失敗" message={error} />;
+    if (isLoading) {
+      return <Loader title="正在進行深度分析..." message="AI 正在分析市場、競爭對手與潛在客戶。" />;
+    }
+    if (error) {
+      return <ErrorDisplay title="分析失敗" message={error} />;
+    }
 
         return (
             <>
@@ -1351,14 +163,23 @@ ${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
                 
                 {analysisResult && !contentStrategy && !isGeneratingStrategy && (
                     <div className="w-full text-center mt-4">
-                         <button onClick={handleGenerateStrategy} className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-md transition duration-300 ease-in-out transform hover:scale-105 inline-flex items-center">
+            <button 
+              onClick={handleGenerateStrategy} 
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-md transition duration-300 ease-in-out transform hover:scale-105 inline-flex items-center"
+            >
                              <SparklesIcon className="w-5 h-5 mr-2" />
                              第二步：生成內容策略
                          </button>
                     </div>
                 )}
                 
-                {isGeneratingStrategy && <Loader title="正在構思內容點子..." message="AI 策略師正在規劃主題與互動要素。" icon={<SparklesIcon className="w-16 h-16 mx-auto"/>}/>}
+        {isGeneratingStrategy && (
+          <Loader 
+            title="正在構思內容點子..." 
+            message="AI 策略師正在規劃主題與互動要素。" 
+            icon={<SparklesIcon className="w-16 h-16 mx-auto"/>}
+          />
+        )}
                 {strategyError && <ErrorDisplay title="策略生成失敗" message={strategyError} />}
                 
                 {contentStrategy && (
@@ -1373,7 +194,7 @@ ${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
                     />
                 )}
             </>
-        )
+    );
     };
 
     return (
@@ -1403,7 +224,10 @@ ${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
                     
                     {(analysisResult || error) && !isLoading && !isGeneratingStrategy && (
                          <div className="w-full max-w-6xl mx-auto text-center mt-12">
-                             <button onClick={handleStartOver} className="text-sm text-slate-400 hover:text-white transition duration-300 inline-flex items-center">
+              <button 
+                onClick={handleStartOver} 
+                className="text-sm text-slate-400 hover:text-white transition duration-300 inline-flex items-center"
+              >
                                  <ArrowPathIcon className="w-4 h-4 mr-2" />
                                  開始新分析
                              </button>
@@ -1413,7 +237,11 @@ ${contentStrategy.ctaSuggestions.map(cta => `- "${cta}"`).join('\n')}
             </main>
             <Footer />
             {promptModalContent && (
-                <PromptModal prompt={promptModalContent} title={promptModalTitle} onClose={() => setPromptModalContent(null)} />
+        <PromptModal 
+          prompt={promptModalContent} 
+          title={promptModalTitle} 
+          onClose={() => setPromptModalContent(null)} 
+        />
             )}
             {isIntroModalOpen && (
                  <InfoModal title="🚀 電商SEO加速器：功能簡介" onClose={() => setIsIntroModalOpen(false)}>
