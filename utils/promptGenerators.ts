@@ -182,6 +182,7 @@ export const generateAIStudioPrompt = (
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${productInfo.name} - ${topic.topic}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script type="importmap">
     {
       "imports": {
@@ -193,8 +194,9 @@ export const generateAIStudioPrompt = (
 </head>
 <body class="bg-slate-900 text-slate-50">
     <div id="root"></div>
-    <script type="module">
+    <script type="text/babel" data-type="module">
         // 請在這裡生成完整的 React 程式碼
+        // 注意：使用 type="text/babel" 讓 Babel 自動轉譯 JSX
     </script>
 </body>
 </html>
@@ -202,7 +204,12 @@ export const generateAIStudioPrompt = (
 
 **React 程式碼要求（必須嚴格遵守）：**
 
-1. **導入語句（必須使用以下格式）：**
+1. **腳本標籤類型（關鍵）：**
+   - 必須使用 \`<script type="text/babel" data-type="module">\` 而不是 \`<script type="module">\`
+   - 這樣 Babel 才能自動轉譯 JSX 語法為瀏覽器可理解的 JavaScript
+   - \`data-type="module"\` 確保 ES6 模組語法正常工作
+
+2. **導入語句（必須使用以下格式）：**
 \`\`\`javascript
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
