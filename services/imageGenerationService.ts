@@ -84,7 +84,7 @@ export const generatePosterImage = async (
         aspectRatio: aspectRatio as '1:1' | '3:4' | '4:3' | '9:16' | '16:9',
         outputMimeType: 'image/jpeg',
         outputCompressionQuality: 90,
-        includeRaiReason: false,
+        includeRaiReason: true, // 啟用以獲取詳細的 RAI 過濾原因
         personGeneration: 'allow_adult', // 允許生成成人人物
       },
     });
@@ -98,7 +98,8 @@ export const generatePosterImage = async (
     
     // 檢查是否有 RAI 過濾原因
     if (generatedImage.raiFilteredReason) {
-      throw new Error(`圖片生成被過濾：${generatedImage.raiFilteredReason}`);
+      const raiReason = generatedImage.raiFilteredReason;
+      throw new Error(`圖片生成被 RAI（負責任 AI）系統過濾。原因：${raiReason}。請調整提示詞內容，避免包含不當、敏感或違規的內容。`);
     }
 
     // 取得圖片資料
@@ -106,12 +107,27 @@ export const generatePosterImage = async (
       throw new Error('圖片生成失敗：圖片資料為空');
     }
 
-    // 將 base64 圖片資料轉換為 data URL
-    const imageDataUrl = `data:image/jpeg;base64,${generatedImage.image.imageBytes}`;
+    // 將 base64 圖片資料轉換為 Blob，然後創建 Blob URL
+    // 這樣可以更有效地管理記憶體，避免長 data URL 造成的問題
+    const base64Data = generatedImage.image.imageBytes;
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+    const blobUrl = URL.createObjectURL(blob);
     
-    return imageDataUrl;
+    return blobUrl;
   } catch (error: any) {
     console.error('圖片生成錯誤:', error);
+    
+    // 檢查是否為 RAI 過濾錯誤
+    if (error.message?.includes('RAI') || error.message?.includes('過濾')) {
+      // RAI 過濾錯誤直接拋出，不嘗試備用方案
+      throw error;
+    }
     
     // 如果是因為語言問題導致的錯誤，嘗試使用 Gemini 2.5 Flash
     if (error.message?.includes('language') || error.message?.includes('Language')) {
@@ -169,7 +185,18 @@ const generateImageWithGemini = async (
       if (candidate.content?.parts) {
         for (const part of candidate.content.parts) {
           if (part.inlineData) {
-            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            // 將 base64 轉換為 Blob URL
+            const base64Data = part.inlineData.data;
+            const mimeType = part.inlineData.mimeType || 'image/jpeg';
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+            const blobUrl = URL.createObjectURL(blob);
+            return blobUrl;
           }
         }
       }

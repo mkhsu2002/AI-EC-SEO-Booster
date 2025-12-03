@@ -150,13 +150,26 @@ function App() {
 
     try {
       const imageUrl = await generatePosterImage(proposal.prompt, size, referenceImage, apiKey);
-      setGeneratedImages(prev => ({
-        ...prev,
-        [proposalIndex]: { url: imageUrl, size },
-      }));
-    } catch (error) {
+      setGeneratedImages(prev => {
+        // 釋放舊的 Blob URL（如果存在）
+        const oldImage = prev[proposalIndex];
+        if (oldImage?.url && oldImage.url.startsWith('blob:')) {
+          URL.revokeObjectURL(oldImage.url);
+        }
+        return {
+          ...prev,
+          [proposalIndex]: { url: imageUrl, size },
+        };
+      });
+    } catch (error: any) {
       console.error('生成圖片失敗:', error);
-      alert('生成圖片失敗，請稍後再試');
+      // 提供更詳細的錯誤訊息，特別是針對 RAI 過濾
+      const errorMessage = error.message || '生成圖片失敗，請稍後再試';
+      if (errorMessage.includes('RAI') || errorMessage.includes('過濾')) {
+        alert(`⚠️ ${errorMessage}\n\n建議：請調整提示詞內容，避免包含敏感、不當或違規的內容。`);
+      } else {
+        alert(`❌ ${errorMessage}`);
+      }
     } finally {
       setIsGeneratingImages(prev => ({ ...prev, [proposalIndex]: false }));
     }
@@ -172,6 +185,14 @@ function App() {
     resetStrategy();
     resetPosters();
     setPromptModalContent(null);
+    
+    // 釋放所有 Blob URL 以釋放記憶體
+    Object.values(generatedImages).forEach(({ url }) => {
+      if (url && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    
     setGeneratedImages({});
     setIsGeneratingImages({});
     setFormKey(prevKey => prevKey + 1);
