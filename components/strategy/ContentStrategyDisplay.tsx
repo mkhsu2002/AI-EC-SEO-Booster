@@ -71,6 +71,20 @@ export const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({
             <p className="text-text-secondary mb-4 text-sm">選擇下方一個主題，生成適用於 AI Studio 或 Gamma 的提示詞。</p>
           </div>
 
+          <div>
+            <h4 className="text-lg font-bold text-brand-light mb-4">個別主題提示詞</h4>
+            <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">
+              {strategy.contentTopics.map((topic, i) => 
+                <ContentTopicCard 
+                  key={i} 
+                  topic={topic}
+                  onGenerateAIStudioPrompt={() => onGenerateAIStudioPrompt(topic)}
+                  onGenerateGammaPrompt={() => onGenerateGammaPrompt(topic)}
+                />
+              )}
+            </div>
+          </div>
+
           {/* 綜合性主題按鈕 */}
           {(onGenerateComprehensiveAIStudioPrompt || onGenerateComprehensiveGammaPrompt) && (
             <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 p-6 rounded-lg border border-purple-700/50">
@@ -107,20 +121,6 @@ export const ContentStrategyDisplay: React.FC<ContentStrategyDisplayProps> = ({
               </div>
             </div>
           )}
-
-          <div>
-            <h4 className="text-lg font-bold text-brand-light mb-4">個別主題提示詞</h4>
-            <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">
-              {strategy.contentTopics.map((topic, i) => 
-                <ContentTopicCard 
-                  key={i} 
-                  topic={topic}
-                  onGenerateAIStudioPrompt={() => onGenerateAIStudioPrompt(topic)}
-                  onGenerateGammaPrompt={() => onGenerateGammaPrompt(topic)}
-                />
-              )}
-            </div>
-          </div>
           <div className="grid md:grid-cols-2 gap-8 pt-4 border-t border-slate-700">
             <div>
               <h4 className="text-xl font-bold text-brand-light mb-4">建議的互動元素</h4>
