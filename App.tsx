@@ -11,6 +11,7 @@ import { ErrorDisplay } from './components/common/ErrorDisplay';
 import { InputForm } from './components/forms/InputForm';
 import { AnalysisResultDisplay } from './components/analysis/AnalysisResultDisplay';
 import { ContentStrategyDisplay } from './components/strategy/ContentStrategyDisplay';
+import { PosterProposalsDisplay } from './components/posters/PosterProposalsDisplay';
 import { PromptModal } from './components/modals/PromptModal';
 import { InfoModal } from './components/modals/InfoModal';
 import { FeatureIntroductionContent } from './components/modals/FeatureIntroductionContent';
@@ -19,6 +20,7 @@ import { SparklesIcon, ArrowPathIcon } from './components/icons';
 // Hooks
 import { useProductAnalysis } from './hooks/useProductAnalysis';
 import { useContentStrategy } from './hooks/useContentStrategy';
+import { usePosterProposals } from './hooks/usePosterProposals';
 import { useScreenshot } from './hooks/useScreenshot';
 
 // Utils
@@ -31,6 +33,8 @@ import {
   calculateRecommendedPages
 } from './utils/promptGenerators';
 import { downloadMarkdown } from './utils/markdownUtils';
+import { generatePosterImage } from './services/imageGenerationService';
+import type { PosterSize } from './types';
 
 function App() {
   const { apiKey } = useApiKey();
@@ -66,6 +70,17 @@ function App() {
     screenshotRef3,
     downloadAllScreenshots,
   } = useScreenshot();
+
+  const {
+    generate: generatePosterProposals,
+    isGenerating: isGeneratingPosters,
+    error: posterError,
+    posterProposals,
+    reset: resetPosters,
+  } = usePosterProposals(apiKey);
+
+  const [generatedImages, setGeneratedImages] = useState<Record<number, { url: string; size: PosterSize }>>({});
+  const [isGeneratingImages, setIsGeneratingImages] = useState<Record<number, boolean>>({});
 
   const handleAnalyze = useCallback(async (info: Parameters<typeof analyze>[0]) => {
     await analyze(info);
@@ -116,10 +131,49 @@ function App() {
     await downloadAllScreenshots(productInfo);
   }, [productInfo, downloadAllScreenshots]);
 
+  const handleGeneratePosterProposals = useCallback(async () => {
+    if (!productInfo || !analysisResult || !contentStrategy) return;
+    await generatePosterProposals(productInfo, analysisResult, contentStrategy);
+  }, [productInfo, analysisResult, contentStrategy, generatePosterProposals]);
+
+  const handleGeneratePosterImage = useCallback(async (
+    proposalIndex: number,
+    size: PosterSize,
+    referenceImage?: File
+  ) => {
+    if (!posterProposals || !apiKey) return;
+
+    const proposal = posterProposals.proposals[proposalIndex];
+    if (!proposal) return;
+
+    setIsGeneratingImages(prev => ({ ...prev, [proposalIndex]: true }));
+
+    try {
+      const imageUrl = await generatePosterImage(proposal.prompt, size, referenceImage, apiKey);
+      setGeneratedImages(prev => ({
+        ...prev,
+        [proposalIndex]: { url: imageUrl, size },
+      }));
+    } catch (error) {
+      console.error('生成圖片失敗:', error);
+      alert('生成圖片失敗，請稍後再試');
+    } finally {
+      setIsGeneratingImages(prev => ({ ...prev, [proposalIndex]: false }));
+    }
+  }, [posterProposals, apiKey]);
+
+  const handleViewPosterPrompt = useCallback((prompt: string) => {
+    setPromptModalTitle('海報生成提示詞');
+    setPromptModalContent(prompt);
+  }, []);
+
   const handleStartOver = () => {
     resetAnalysis();
     resetStrategy();
+    resetPosters();
     setPromptModalContent(null);
+    setGeneratedImages({});
+    setIsGeneratingImages({});
     setFormKey(prevKey => prevKey + 1);
   };
     
@@ -165,17 +219,33 @@ function App() {
                 {strategyError && <ErrorDisplay title="策略生成失敗" message={strategyError} />}
                 
                 {contentStrategy && (
-                    <ContentStrategyDisplay 
-                        strategy={contentStrategy} 
-                        productInfo={productInfo}
-                        analysisResult={analysisResult}
-                        onGenerateAIStudioPrompt={handleGenerateAIStudioPrompt}
-                        onGenerateGammaPrompt={handleGenerateGammaPrompt}
-                        onGenerateComprehensiveAIStudioPrompt={handleGenerateComprehensiveAIStudioPrompt}
-                        onGenerateComprehensiveGammaPrompt={handleGenerateComprehensiveGammaPrompt}
-                        onDownloadAllPrompts={handleDownloadAllPrompts}
-                        screenshotRef3={screenshotRef3}
-                    />
+                    <>
+                        <ContentStrategyDisplay 
+                            strategy={contentStrategy} 
+                            productInfo={productInfo}
+                            analysisResult={analysisResult}
+                            onGenerateAIStudioPrompt={handleGenerateAIStudioPrompt}
+                            onGenerateGammaPrompt={handleGenerateGammaPrompt}
+                            onGenerateComprehensiveAIStudioPrompt={handleGenerateComprehensiveAIStudioPrompt}
+                            onGenerateComprehensiveGammaPrompt={handleGenerateComprehensiveGammaPrompt}
+                            onDownloadAllPrompts={handleDownloadAllPrompts}
+                            screenshotRef3={screenshotRef3}
+                        />
+                        
+                        <PosterProposalsDisplay
+                            productInfo={productInfo}
+                            analysisResult={analysisResult}
+                            contentStrategy={contentStrategy}
+                            posterProposals={posterProposals}
+                            isGenerating={isGeneratingPosters}
+                            error={posterError}
+                            onGenerate={handleGeneratePosterProposals}
+                            onGenerateImage={handleGeneratePosterImage}
+                            onViewPrompt={handleViewPosterPrompt}
+                            generatedImages={generatedImages}
+                            isGeneratingImages={isGeneratingImages}
+                        />
+                    </>
                 )}
             </>
     );

@@ -74,3 +74,21 @@ export interface ContentStrategy {
   interactiveElements: InteractiveElement[];
   ctaSuggestions: string[];
 }
+
+// --- Poster Proposal Types ---
+
+export type PosterSize = '1080x1080' | '1080x1350' | '1080x1920' | '1920x1080';
+
+export interface PosterProposal {
+  title: string;
+  description: string;
+  designConcept: string;
+  colorScheme: string;
+  keyVisualElements: string[];
+  textContent: string;
+  prompt: string; // 用於圖片生成的提示詞
+}
+
+export interface PosterProposals {
+  proposals: PosterProposal[];
+}

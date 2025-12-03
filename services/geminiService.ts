@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { ProductInfo, AnalysisResult, ContentStrategy } from '../types';
+import type { ProductInfo, AnalysisResult, ContentStrategy, PosterProposals } from '../types';
 
 let aiInstance: GoogleGenAI | null = null;
 
@@ -240,5 +240,127 @@ export const generateContentStrategy = async (analysisResult: AnalysisResult, ap
     } catch (error) {
         console.error("Error generating content strategy:", error);
         throw new Error("生成內容策略時發生錯誤。請檢查您的網路連線或稍後再試。");
+    }
+};
+
+// ============================================================================
+// 海報提案生成
+// ============================================================================
+
+const posterProposalsSchema = {
+    type: Type.OBJECT,
+    properties: {
+        proposals: {
+            type: Type.ARRAY,
+            description: "三個不同的商品海報提案",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING, description: "海報標題" },
+                    description: { type: Type.STRING, description: "海報設計理念和目標的描述" },
+                    designConcept: { type: Type.STRING, description: "設計概念說明" },
+                    colorScheme: { type: Type.STRING, description: "色彩方案建議" },
+                    keyVisualElements: { 
+                        type: Type.ARRAY, 
+                        items: { type: Type.STRING },
+                        description: "關鍵視覺元素列表"
+                    },
+                    textContent: { type: Type.STRING, description: "海報上的主要文字內容" },
+                    prompt: { 
+                        type: Type.STRING, 
+                        description: "用於圖片生成的詳細提示詞，應包含風格、構圖、色彩、元素等詳細描述"
+                    },
+                },
+                required: ["title", "description", "designConcept", "colorScheme", "keyVisualElements", "textContent", "prompt"]
+            }
+        }
+    },
+    required: ["proposals"]
+};
+
+export const generatePosterProposals = async (
+    productInfo: ProductInfo,
+    analysisResult: AnalysisResult,
+    contentStrategy: ContentStrategy,
+    apiKey: string
+): Promise<PosterProposals> => {
+    if (!apiKey) {
+        throw new Error("API Key 未設定，請先設定 Gemini API Key");
+    }
+
+    const ai = getAIInstance(apiKey);
+
+    const prompt = `
+        你是一位專業的視覺設計師和行銷專家，專精於商品海報設計。根據以下詳細的市場分析和內容策略，為產品「${productInfo.name}」創建三個不同風格的商品海報提案。
+
+        **產品資訊：**
+        - 產品名稱：${productInfo.name}
+        - 產品描述：${productInfo.description}
+        - 目標市場：${productInfo.market}
+
+        **市場分析：**
+        - **產品核心價值：** 
+          - 主要特色：${analysisResult.productCoreValue.mainFeatures.join('、')}
+          - 核心優勢：${analysisResult.productCoreValue.coreAdvantages.join('、')}
+          - 解決的痛點：${analysisResult.productCoreValue.painPointsSolved.join('、')}
+        - **目標受眾：** ${analysisResult.buyerPersonas.map(p => `${p.personaName} (${p.demographics})`).join('、')}
+        - **市場定位：** ${analysisResult.marketPositioning.culturalInsights}
+        - **消費習慣：** ${analysisResult.marketPositioning.consumerHabits}
+
+        **內容策略：**
+        - **內容主題：** ${contentStrategy.contentTopics.map(t => t.topic).join('、')}
+        - **CTA 建議：** ${contentStrategy.ctaSuggestions.join('、')}
+
+        **任務要求：**
+        請創建三個風格迥異的海報提案，每個提案都應該：
+        1. **標題**：吸引人的海報標題
+        2. **描述**：說明這個海報的設計理念和目標受眾
+        3. **設計概念**：詳細的設計概念說明（風格、氛圍、視覺重點）
+        4. **色彩方案**：建議的色彩搭配（例如：主色、輔色、強調色）
+        5. **關鍵視覺元素**：列出 3-5 個關鍵的視覺元素（例如：產品圖、圖示、背景、裝飾元素等）
+        6. **文字內容**：海報上要顯示的主要文字內容（標題、副標題、說明文字等）
+        7. **提示詞**：用於圖片生成的詳細提示詞，應包含：
+           - 風格描述（例如：現代簡約、復古風格、科技感、溫馨風格等）
+           - 構圖方式（例如：居中構圖、對角線構圖、三分法構圖等）
+           - 色彩描述（使用建議的色彩方案）
+           - 視覺元素（列出關鍵視覺元素）
+           - 文字呈現方式（文字的位置、大小、風格）
+           - 整體氛圍和情感傳達
+
+        三個提案應該有不同的風格定位：
+        - 提案一：專業、現代、簡約風格
+        - 提案二：創意、活潑、吸引眼球風格
+        - 提案三：情感訴求、故事性、溫馨風格
+
+        所有內容必須使用繁體中文（繁體中文）。
+
+        返回完整的 JSON 物件，嚴格遵守提供的 schema。不要包含任何 JSON 之外的文字或 Markdown 格式。
+    `;
+
+    try {
+        const result = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: posterProposalsSchema,
+            },
+        });
+
+        const jsonString = result.text.trim();
+        try {
+            const parsedResult: PosterProposals = JSON.parse(jsonString);
+            // 確保有3個提案
+            if (parsedResult.proposals.length !== 3) {
+                throw new Error("海報提案數量不正確");
+            }
+            return parsedResult;
+        } catch (e) {
+            console.error("Failed to parse JSON response:", jsonString);
+            throw new Error("模型回傳的資料格式錯誤，無法解析。請稍後再試。");
+        }
+    } catch (error) {
+        console.error("Error generating poster proposals:", error);
+        throw new Error("生成海報提案時發生錯誤。請檢查您的網路連線或稍後再試。");
     }
 };
