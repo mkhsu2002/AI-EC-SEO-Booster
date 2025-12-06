@@ -7,6 +7,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { PosterSize } from '../types';
 import { fileToBase64 } from '../utils/fileUtils';
+import { enhancePromptForTraditionalChinese, REFERENCE_IMAGE_ANALYSIS_PROMPT } from '../utils/prompts';
 
 /**
  * 將 PosterSize 轉換為 API 支援的長寬比
@@ -19,6 +20,19 @@ const convertSizeToAspectRatio = (size: PosterSize): string => {
     '1920x1080': '16:9',     // 橫式
   };
   return sizeMap[size] || '1:1';
+};
+
+/**
+ * 檢測文字是否包含中文字符（繁體或簡體）
+ */
+const containsChinese = (text: string): boolean => {
+  // 中文字符的 Unicode 範圍
+  // CJK Unified Ideographs: \u4E00-\u9FFF
+  // CJK Extension A: \u3400-\u4DBF
+  // CJK Extension B: \u20000-\u2A6DF
+  // CJK Compatibility Ideographs: \uF900-\uFAFF
+  const chineseRegex = /[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]/;
+  return chineseRegex.test(text);
 };
 
 /**
@@ -38,6 +52,9 @@ export const generatePosterImage = async (
     const ai = new GoogleGenAI({ apiKey });
     const aspectRatio = convertSizeToAspectRatio(size);
 
+    // 檢測是否為中文模式
+    const isChineseMode = containsChinese(prompt);
+    
     // 準備提示詞
     let finalPrompt = prompt;
     
@@ -59,7 +76,7 @@ export const generatePosterImage = async (
                 },
               },
               {
-                text: `請分析這張參考圖片的視覺風格、色彩搭配、構圖方式和設計元素。然後用繁體中文描述這些特徵，這些資訊將用於生成類似風格的海報圖片。`,
+                text: REFERENCE_IMAGE_ANALYSIS_PROMPT,
               },
             ],
           },
@@ -73,11 +90,20 @@ export const generatePosterImage = async (
       }
     }
 
-    // 使用 Imagen 生成圖片
-    // 注意：Imagen 目前主要支援英文提示詞，但我們可以嘗試使用中文
-    // 如果失敗，可以考慮將提示詞翻譯成英文
+    // 如果是中文模式，增強提示詞以確保繁體中文渲染
+    if (isChineseMode) {
+      finalPrompt = enhancePromptForTraditionalChinese(finalPrompt);
+    }
+
+    // 根據語言模式選擇模型
+    // 中文模式使用 gemini-3-pro-image-preview，英文模式使用 imagen-4.0-fast-generate-001
+    const model = isChineseMode ? 'gemini-3-pro-image-preview' : 'imagen-4.0-fast-generate-001';
+    
+    console.log(`使用模型: ${model} (${isChineseMode ? '中文模式' : '英文模式'})`);
+
+    // 使用選定的模型生成圖片
     const response = await ai.models.generateImages({
-      model: 'imagen-4.0-fast-generate-001',
+      model: model,
       prompt: finalPrompt,
       config: {
         numberOfImages: 1,
