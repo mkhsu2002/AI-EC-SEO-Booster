@@ -149,7 +149,19 @@ function App() {
     setIsGeneratingImages(prev => ({ ...prev, [proposalIndex]: true }));
 
     try {
-      const imageUrl = await generatePosterImage(proposal.prompt, size, referenceImage, apiKey);
+      // 檢查產品資訊是否包含中文，如果包含則強制使用中文模式
+      const productHasChinese = productInfo ? 
+        (productInfo.name.match(/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]/) !== null ||
+         productInfo.description.match(/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]/) !== null ||
+         productInfo.market.match(/[\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF]/) !== null) : false;
+      
+      const imageUrl = await generatePosterImage(
+        proposal.prompt, 
+        size, 
+        referenceImage, 
+        apiKey,
+        productHasChinese // 如果產品資訊包含中文，強制使用中文模式
+      );
       setGeneratedImages(prev => {
         // 釋放舊的 Blob URL（如果存在）
         const oldImage = prev[proposalIndex];
@@ -173,7 +185,7 @@ function App() {
     } finally {
       setIsGeneratingImages(prev => ({ ...prev, [proposalIndex]: false }));
     }
-  }, [posterProposals, apiKey]);
+  }, [posterProposals, apiKey, productInfo]);
 
   const handleViewPosterPrompt = useCallback((prompt: string) => {
     setPromptModalTitle('海報生成提示詞');

@@ -42,7 +42,8 @@ export const generatePosterImage = async (
   prompt: string,
   size: PosterSize,
   referenceImage?: File,
-  apiKey?: string
+  apiKey?: string,
+  forceChineseMode?: boolean // 強制使用中文模式
 ): Promise<string> => {
   if (!apiKey) {
     throw new Error("API Key 未設定，請先設定 Gemini API Key");
@@ -52,8 +53,8 @@ export const generatePosterImage = async (
     const ai = new GoogleGenAI({ apiKey });
     const aspectRatio = convertSizeToAspectRatio(size);
 
-    // 檢測是否為中文模式
-    const isChineseMode = containsChinese(prompt);
+    // 檢測是否為中文模式：如果強制中文模式，或者提示詞包含中文
+    const isChineseMode = forceChineseMode !== undefined ? forceChineseMode : containsChinese(prompt);
     
     // 準備提示詞
     let finalPrompt = prompt;
